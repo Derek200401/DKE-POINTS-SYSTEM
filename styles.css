@@ -202,6 +202,7 @@ td { color: #dce1d9; font-size: 13px; }
 
 @media (max-width: 680px) {
   .app-shell { width: min(100% - 32px, 520px); }
+  .footer { flex-wrap: wrap; justify-content: flex-start; padding: 16px 0; gap: 8px 18px; }
   .topbar { min-height: 64px; }
   .brand-name { max-width: 185px; font-size: 12px; }
   .topbar-right { gap: 9px; }
