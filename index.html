@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111311">
+    <meta name="description" content="DKE Scrim Points System leaderboard.">
+    <title>DKE Scrim Points System</title>
+    <link rel="stylesheet" href="styles.css">
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="DKE Scrim Points System home">
+          <img class="brand-logo" src="assets/dke-logo.png" alt="">
+          <span class="brand-name">DKE Scrim Points System</span>
+        </a>
+        <div class="topbar-right">
+          <span class="connection-state"><span class="connection-dot" aria-hidden="true"></span><span id="live-label">Connecting</span></span>
+          <div id="admin-controls" class="admin-controls"></div>
+        </div>
+      </header>
+
+      <main class="main">
+        <section class="page-heading">
+          <div>
+            <h1>Points dashboard</h1>
+            <p>Players and their current scrim points.</p>
+          </div>
+          <span class="updated-at" id="last-updated">Loading points...</span>
+        </section>
+
+        <section class="summary" aria-label="Leaderboard summary">
+          <article class="summary-card">
+            <span class="summary-label">Players</span>
+            <strong class="summary-value" id="player-count">0</strong>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">Top player</span>
+            <strong class="summary-value is-leader" id="leader-name">No players yet</strong>
+          </article>
+          <article class="summary-card">
+            <span class="summary-label">Points earned</span>
+            <strong class="summary-value"><span id="total-points">0</span> pts</strong>
+          </article>
+        </section>
+
+        <section class="panel" aria-labelledby="players-heading">
+          <div class="panel-heading">
+            <h2 class="panel-title" id="players-heading">Players</h2>
+            <div class="panel-actions">
+              <label class="visually-hidden" for="search-input">Search players</label>
+              <input class="search" id="search-input" type="search" placeholder="Search IGN..." autocomplete="off">
+              <button class="button button-primary" id="add-player-button" type="button" hidden>+ Add player</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th class="rank-cell" scope="col">#</th>
+                  <th scope="col">IGN</th>
+                  <th class="points-heading" scope="col">Points</th>
+                  <th class="action-heading" id="actions-heading" scope="col" hidden>Action</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboard-body"></tbody>
+            </table>
+            <div class="empty-state" id="empty-state" hidden>
+              <h3>No players added yet</h3>
+              <p>The admin can add players and set their points here.</p>
+            </div>
+            <div class="empty-state" id="no-results" hidden>
+              <h3>No matching players</h3>
+              <p>Try searching for another IGN.</p>
+            </div>
+          </div>
+          <div class="panel-foot">
+            <span>Scores are updated by the admin.</span>
+            <span id="refresh-note">Updates automatically</span>
+          </div>
+        </section>
+
+        <section class="panel scoring-panel" aria-labelledby="scoring-heading">
+          <h2 class="scoring-heading" id="scoring-heading">Points per round</h2>
+          <p class="scoring-copy">The points awarded for each result.</p>
+          <div class="scoring-list">
+            <div class="scoring-item"><span>MVP win</span><strong>15 pts</strong></div>
+            <div class="scoring-item"><span>Team win</span><strong>10 pts</strong></div>
+            <div class="scoring-item"><span>MVP loss</span><strong>7 pts</strong></div>
+            <div class="scoring-item"><span>Team loss</span><strong>5 pts</strong></div>
+          </div>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>DKE Scrim Points System</span>
+        <span>Developer: Dherick Rosal (Purtunatu)</span>
+      </footer>
+    </div>
+
+    <dialog class="modal" id="login-modal" aria-labelledby="login-title">
+      <form class="modal-form" id="login-form">
+        <div class="modal-heading">
+          <h2 id="login-title">Admin sign in</h2>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <p class="modal-description">Sign in to add players or change points.</p>
+        <label class="field-label" for="admin-username">Username</label>
+        <input class="field-input" id="admin-username" name="username" autocomplete="username" required>
+        <label class="field-label" for="admin-password">Password</label>
+        <input class="field-input" id="admin-password" name="password" type="password" autocomplete="current-password" required>
+        <p class="form-message" id="login-message" role="alert"></p>
+        <button class="button button-primary modal-submit" type="submit">Sign in</button>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="player-modal" aria-labelledby="player-modal-title">
+      <form class="modal-form" id="player-form">
+        <div class="modal-heading">
+          <h2 id="player-modal-title">Add player</h2>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <p class="modal-description" id="player-modal-description">Add an in-game name and set their points.</p>
+        <label class="field-label" for="player-ign">IGN</label>
+        <input class="field-input" id="player-ign" name="ign" maxlength="40" autocomplete="off" required>
+        <label class="field-label" for="player-points">Points</label>
+        <input class="field-input" id="player-points" name="points" type="number" min="0" max="1000000" step="1" value="0" required>
+        <p class="form-message" id="player-message" role="alert"></p>
+        <button class="button button-primary modal-submit" id="player-submit" type="submit">Add player</button>
+      </form>
+    </dialog>
+  </body>
+</html>
