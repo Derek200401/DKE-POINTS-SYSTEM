@@ -1,5 +1,5 @@
 const { reportServerError, sendJson } = require("../lib/server");
-const { readPlayers } = require("../lib/players");
+const { getBlobErrorHint, readPlayers } = require("../lib/players");
 
 module.exports = async function handler(req, res) {
   if (req.method !== "GET") {
@@ -12,6 +12,7 @@ module.exports = async function handler(req, res) {
     );
     return sendJson(res, 200, { players });
   } catch (error) {
-    return reportServerError(res, error, "Could not load the players. Check that Vercel Blob is connected.");
+    console.error("Could not load scrim player points:", error);
+    return sendJson(res, 503, { error: getBlobErrorHint(error) });
   }
 };

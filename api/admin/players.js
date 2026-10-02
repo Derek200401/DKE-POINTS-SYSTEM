@@ -9,7 +9,7 @@ const {
   validateIgn,
   validatePoints,
 } = require("../../lib/server");
-const { readPlayers, writePlayers } = require("../../lib/players");
+const { getBlobErrorHint, readPlayers, writePlayers } = require("../../lib/players");
 
 module.exports = async function handler(req, res) {
   if (!["POST", "PATCH"].includes(req.method)) {
@@ -69,6 +69,7 @@ module.exports = async function handler(req, res) {
         error: error.status === 413 ? "The request is too large." : "The request must contain valid JSON.",
       });
     }
-    return reportServerError(res, error, "Could not save those points. Check Vercel Blob and try again.");
+    console.error("Could not save scrim player points:", error);
+    return sendJson(res, 503, { error: getBlobErrorHint(error) });
   }
 };
