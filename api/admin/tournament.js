@@ -7,11 +7,11 @@ const {
   sendJson,
 } = require("../../lib/server");
 const { getBlobErrorHint, readTournament, writeTournament } = require("../../lib/players");
-const { createTournament, updateMatch, validateTournament } = require("../../lib/tournament");
+const { createTournament, manageParticipant, updateMatch, validateTournament } = require("../../lib/tournament");
 
 module.exports = async function handler(req, res) {
-  if (!["POST", "PATCH"].includes(req.method)) {
-    res.setHeader("Allow", "POST, PATCH");
+  if (!["POST", "PATCH", "DELETE"].includes(req.method)) {
+    res.setHeader("Allow", "POST, PATCH, DELETE");
     return sendJson(res, 405, { error: "Method not allowed." });
   }
   if (!hasSameOrigin(req)) return sendJson(res, 403, { error: "Request origin could not be verified." });
@@ -27,8 +27,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
-    const body = await readJson(req);
-    if (!body || typeof body !== "object" || Array.isArray(body)) {
+    const body = req.method === "DELETE" ? null : await readJson(req);
+    if (req.method !== "DELETE" && (!body || typeof body !== "object" || Array.isArray(body))) {
       return sendJson(res, 400, { error: "The request must be a JSON object." });
     }
     if (req.method === "POST") {
@@ -43,7 +43,15 @@ module.exports = async function handler(req, res) {
     const saved = await readTournament();
     if (!saved) return sendJson(res, 404, { error: "There is no tournament to update." });
     const tournament = validateTournament(saved);
-    updateMatch(tournament, body);
+    if (req.method === "DELETE") {
+      await writeTournament(null);
+      return sendJson(res, 200, { tournament: null });
+    }
+    if (body.action === "rename" || body.action === "remove") {
+      manageParticipant(tournament, body);
+    } else {
+      updateMatch(tournament, body);
+    }
     await writeTournament(tournament);
     return sendJson(res, 200, { tournament });
   } catch (error) {

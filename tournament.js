@@ -4,6 +4,7 @@ const state = {
   isAdmin: false,
   loading: false,
   zoom: 1,
+  editingParticipantId: null,
 };
 
 const elements = {
@@ -19,6 +20,10 @@ const elements = {
   setupMessage: document.querySelector("#setup-message"),
   participantInput: document.querySelector("#setup-participants"),
   participantCount: document.querySelector("#setup-count"),
+  editTeamModal: document.querySelector("#edit-team-modal"),
+  editTeamForm: document.querySelector("#edit-team-form"),
+  editTeamName: document.querySelector("#edit-team-name"),
+  editTeamMessage: document.querySelector("#edit-team-message"),
 };
 
 elements.content.addEventListener("pointerdown", (event) => {
@@ -319,6 +324,61 @@ function buildStandings() {
   return panel;
 }
 
+function buildTeamManagement() {
+  const panel = document.createElement("section");
+  panel.className = "panel team-management";
+  const heading = document.createElement("div");
+  heading.className = "panel-heading";
+  const title = document.createElement("h2");
+  title.className = "panel-title";
+  title.textContent = "Manage teams";
+  const count = document.createElement("span");
+  count.className = "field-hint";
+  count.textContent = `${state.tournament.participants.length} teams`;
+  heading.append(title, count);
+  const list = document.createElement("ol");
+  list.className = "team-management-list";
+  state.tournament.participants.forEach((participant) => {
+    const row = document.createElement("li");
+    row.className = "team-management-row";
+    const identity = document.createElement("div");
+    identity.className = "team-management-identity";
+    const seed = document.createElement("strong");
+    seed.textContent = `#${participant.seed}`;
+    const name = document.createElement("span");
+    name.textContent = participant.name;
+    identity.append(seed, name);
+    const actions = document.createElement("div");
+    actions.className = "team-management-actions";
+    const edit = document.createElement("button");
+    edit.type = "button";
+    edit.className = "button button-quiet";
+    edit.textContent = "Edit name";
+    edit.addEventListener("click", () => {
+      state.editingParticipantId = participant.id;
+      elements.editTeamName.value = participant.name;
+      elements.editTeamMessage.textContent = "";
+      elements.editTeamModal.showModal();
+      elements.editTeamName.focus();
+    });
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "button button-quiet team-remove";
+    remove.textContent = "Remove";
+    remove.addEventListener("click", () => {
+      const confirmed = window.confirm(
+        `Remove "${participant.name}" from this tournament? The bracket will be rebuilt and all match results and schedules will be cleared.`,
+      );
+      if (confirmed) updateMatch({ action: "remove", participantId: participant.id });
+    });
+    actions.append(edit, remove);
+    row.append(identity, actions);
+    list.append(row);
+  });
+  panel.append(heading, list);
+  return panel;
+}
+
 function makeScoreForm(match) {
   const form = document.createElement("form");
   form.className = "match-score-form";
@@ -587,9 +647,8 @@ function makeEliminationTree(tournament) {
     const column = isFinal
       ? finalRound
       : leftSide ? match.round : columnCount - match.round + 1;
-    const visualPosition = leftSide ? match.position : matchCount - match.position + 1;
     const span = 2 ** match.round;
-    const startRow = isFinal ? 1 : (visualPosition - 1) * span + 1;
+    const startRow = isFinal ? 1 : (match.position - 1) * span + 1;
     const card = makeMatchCard(match, true);
     card.style.gridColumn = String(column);
     card.style.gridRow = `${startRow} / span ${isFinal ? slots : span}`;
@@ -737,6 +796,7 @@ function render() {
   summary.append(titlePanel, statusPanel, matchPanel);
   elements.content.append(summary);
 
+  if (state.isAdmin) elements.content.append(buildTeamManagement());
   if (["round_robin", "swiss"].includes(tournament.format) || tournament.settings.poolPlay) elements.content.append(buildStandings());
   elements.content.append(renderBracket());
   if (state.isAdmin && tournament.status !== "completed") {
@@ -754,7 +814,30 @@ function render() {
         updateMatch({ action: "finish" });
       }
     });
-    actions.append(note, finish);
+    const deleteBracket = document.createElement("button");
+    deleteBracket.type = "button";
+    deleteBracket.className = "button button-danger";
+    deleteBracket.textContent = "Delete full bracket";
+    deleteBracket.addEventListener("click", () => {
+      if (window.confirm(`Delete "${tournament.title}" and all teams, matches, and results? This cannot be undone.`)) {
+        deleteTournament();
+      }
+    });
+    actions.append(note, finish, deleteBracket);
+    elements.content.append(actions);
+  } else if (state.isAdmin) {
+    const actions = document.createElement("div");
+    actions.className = "tournament-admin-footer";
+    const deleteBracket = document.createElement("button");
+    deleteBracket.type = "button";
+    deleteBracket.className = "button button-danger";
+    deleteBracket.textContent = "Delete full bracket";
+    deleteBracket.addEventListener("click", () => {
+      if (window.confirm(`Delete "${tournament.title}" and all teams, matches, and results? This cannot be undone.`)) {
+        deleteTournament();
+      }
+    });
+    actions.append(deleteBracket);
     elements.content.append(actions);
   }
 }
@@ -769,6 +852,18 @@ async function updateMatch(body) {
     showMessage("");
     setAdminControls();
     render();
+  } catch (error) {
+    showMessage(error.message, true);
+  }
+}
+
+async function deleteTournament() {
+  try {
+    await request("/api/admin/tournament", { method: "DELETE" });
+    state.tournament = null;
+    setAdminControls();
+    render();
+    showMessage("Tournament bracket deleted.");
   } catch (error) {
     showMessage(error.message, true);
   }
@@ -846,6 +941,31 @@ elements.setupForm.addEventListener("submit", async (event) => {
         },
       }),
     });
+
+    elements.editTeamForm.addEventListener("submit", async (event) => {
+      event.preventDefault();
+      elements.editTeamMessage.textContent = "";
+      const submit = elements.editTeamForm.querySelector('[type="submit"]');
+      submit.disabled = true;
+      try {
+        const result = await request("/api/admin/tournament", {
+          method: "PATCH",
+          body: JSON.stringify({
+            action: "rename",
+            participantId: state.editingParticipantId,
+            name: elements.editTeamName.value,
+          }),
+        });
+        state.tournament = result.tournament;
+        elements.editTeamModal.close();
+        setAdminControls();
+        render();
+      } catch (error) {
+        elements.editTeamMessage.textContent = error.message;
+      } finally {
+        submit.disabled = false;
+      }
+    });
     state.tournament = result.tournament;
     elements.setupModal.close();
     setAdminControls();
@@ -873,7 +993,7 @@ document.querySelector("#setup-format").addEventListener("change", (event) => {
 document.querySelectorAll("[data-close-modal]").forEach((button) => {
   button.addEventListener("click", () => button.closest("dialog").close());
 });
-[elements.loginModal, elements.setupModal].forEach((modal) => {
+[elements.loginModal, elements.setupModal, elements.editTeamModal].forEach((modal) => {
   modal.addEventListener("click", (event) => {
     if (event.target === modal) modal.close();
   });

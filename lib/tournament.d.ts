@@ -130,3 +130,9 @@ export interface MatchScheduleInput {
   scheduledTime: string | null;
   stationId: string | null;
 }
+
+export interface ManageTeamInput {
+  action: "rename" | "remove";
+  participantId: string;
+  name?: string;
+}

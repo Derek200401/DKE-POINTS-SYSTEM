@@ -96,5 +96,19 @@
         <button class="button button-primary modal-submit" type="submit">Create tournament</button>
       </form>
     </dialog>
+
+    <dialog class="modal" id="edit-team-modal" aria-labelledby="edit-team-title">
+      <form class="modal-form" id="edit-team-form">
+        <div class="modal-heading">
+          <h2 id="edit-team-title">Edit team name</h2>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <p class="modal-description">Changing a team name updates it throughout the bracket.</p>
+        <label class="field-label" for="edit-team-name">Team name</label>
+        <input class="field-input" id="edit-team-name" maxlength="40" required>
+        <p class="form-message" id="edit-team-message" role="alert"></p>
+        <button class="button button-primary modal-submit" type="submit">Save team name</button>
+      </form>
+    </dialog>
   </body>
 </html>
