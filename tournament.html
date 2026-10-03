@@ -61,22 +61,17 @@
           <h2 id="setup-title">Set up tournament</h2>
           <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
         </div>
-        <p class="modal-description">Create a tournament. Participant order sets seed order; drag names to reseed manually.</p>
+        <p class="modal-description">Enter the team names and choose the tournament format. Put teams in the order you want them seeded.</p>
         <label class="field-label" for="setup-title-input">Tournament name</label>
         <input class="field-input" id="setup-title-input" maxlength="80" required placeholder="DKE Scrim Cup">
-        <label class="field-label" for="setup-count">Number of participants</label>
+        <label class="field-label" for="setup-count">Number of teams</label>
         <input class="field-input" id="setup-count" type="number" min="2" max="256" value="8" required>
-        <label class="field-label" for="setup-format">Bracket format</label>
+        <label class="field-label" for="setup-format">Tournament system</label>
         <select class="field-input" id="setup-format">
           <option value="single_elimination">Single elimination</option>
           <option value="double_elimination">Double elimination</option>
           <option value="round_robin">Round robin</option>
           <option value="swiss">Swiss system</option>
-        </select>
-        <label class="field-label" for="setup-seeding">Seeding</label>
-        <select class="field-input" id="setup-seeding">
-          <option value="manual">Manual order (drag to reseed)</option>
-          <option value="rank">Leaderboard rank (highest points first)</option>
         </select>
         <label class="field-label" for="setup-best-of">Match set format</label>
         <select class="field-input" id="setup-best-of">
@@ -91,16 +86,9 @@
           <label class="field-label" for="setup-qualifiers">Qualifiers per group</label>
           <input class="field-input" id="setup-qualifiers" type="number" min="1" value="2">
         </div>
-        <label class="field-label" for="setup-participants">Participants (one name per line, in seed order)</label>
-        <textarea class="field-input setup-participants" id="setup-participants" required placeholder="Enter participant names, one per line"></textarea>
-        <div class="setup-seeds">
-          <div class="setup-seeds-heading">
-            <span class="field-label">Seed order</span>
-            <button class="button button-quiet" id="load-leaderboard-seeds" type="button">Use leaderboard order</button>
-          </div>
-          <ol id="setup-seed-list" class="seed-list" aria-label="Draggable participant seed order"></ol>
-          <span id="seed-help" class="field-hint">Drag participants to change their seed.</span>
-        </div>
+        <label class="field-label" for="setup-participants">Team names (one team per line)</label>
+        <textarea class="field-input setup-participants" id="setup-participants" required placeholder="Team Alpha&#10;Team Bravo&#10;Team Charlie"></textarea>
+        <span class="field-hint setup-team-hint">Enter exactly the number of team names above. The first name gets seed #1.</span>
         <label class="field-label" for="setup-stations">Stations or courts (optional, one per line)</label>
         <textarea class="field-input setup-stations" id="setup-stations" placeholder="Court 1&#10;Court 2"></textarea>
         <label class="check-row"><input id="setup-consolation" type="checkbox"> Add a 3rd-place playoff</label>

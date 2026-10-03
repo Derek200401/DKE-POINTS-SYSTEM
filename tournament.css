@@ -63,15 +63,30 @@
 .setup-stations { min-height: 62px; padding: 8px 10px; resize: vertical; }
 .pool-settings { padding: 10px; border: 1px solid var(--border); border-radius: 7px; background: var(--page); }
 .pool-settings[hidden] { display: none; }
-.setup-seeds { margin: -3px 0 16px; }
-.setup-seeds-heading { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
-.setup-seeds-heading .field-label { margin: 0; }
-.setup-seeds-heading .button { min-height: 31px; padding: 0 9px; font-size: 10px; }
-.seed-list { display: grid; gap: 5px; max-height: 170px; margin: 9px 0 6px; padding: 0; overflow-y: auto; list-style: none; }
-.seed-item { display: flex; align-items: center; gap: 11px; min-height: 35px; padding: 5px 9px; border: 1px solid var(--border); border-radius: 6px; background: var(--page); color: var(--text); cursor: grab; font-size: 11px; }
-.seed-item:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.seed-item strong { min-width: 25px; color: var(--accent); }
-.seed-item.is-dragging { opacity: .45; }
+.setup-team-hint { display: block; margin: -8px 0 16px; }
+.elimination-tree { flex: 0 0 auto; width: max-content; }
+.tree-stage-labels, .tree-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--tree-cols), 180px);
+}
+.tree-stage-labels { margin-bottom: 10px; color: var(--muted); font-size: 10px; font-weight: 650; letter-spacing: .04em; text-align: center; text-transform: uppercase; }
+.tree-grid {
+  position: relative;
+  grid-template-rows: repeat(var(--tree-size), 44px);
+  align-items: center;
+}
+.tree-connectors { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.tree-connector { fill: none; stroke: var(--border); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.tree-match { z-index: 1; width: 164px; justify-self: center; padding: 8px 9px; border-radius: 12px; box-shadow: 0 2px 8px #0003; }
+.tree-match .match-card-heading { margin-bottom: 3px; font-size: 9px; }
+.tree-match .match-state { display: none; }
+.tree-match .match-player { min-height: 23px; gap: 6px; font-size: 10px; }
+.tree-match .match-player span { min-width: 0; }
+.match-admin-details { position: relative; margin-top: 5px; }
+.match-admin-details > summary { width: max-content; padding: 3px 0; color: var(--muted); cursor: pointer; font-size: 9px; }
+.match-admin-tools { display: grid; gap: 5px; }
+.tree-match .match-admin-tools { position: absolute; z-index: 5; top: 100%; left: 0; width: 240px; padding: 9px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-raised); box-shadow: 0 8px 22px #0008; }
+.tree-match .match-admin-tools .button { white-space: normal; }
 .field-hint { color: var(--muted); font-size: 10px; line-height: 1.5; }
 .check-row { display: flex; align-items: center; gap: 8px; margin: 0 0 15px; color: var(--muted); font-size: 11px; }
 .check-row input { accent-color: var(--accent); }
@@ -80,6 +95,8 @@
   .tournament-summary { grid-template-columns: minmax(0, 1fr); }
   .bracket-canvas { gap: 14px; padding: 14px; }
   .bracket-round { width: 215px; flex-basis: 215px; }
+  .tree-stage-labels, .tree-grid { grid-template-columns: repeat(var(--tree-cols), 160px); }
+  .tree-match { width: 148px; }
   .bracket-viewport { max-height: 65vh; }
   .tournament-admin-footer { align-items: flex-start; flex-direction: column; }
 }

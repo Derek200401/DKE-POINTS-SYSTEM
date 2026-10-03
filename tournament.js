@@ -4,8 +4,6 @@ const state = {
   isAdmin: false,
   loading: false,
   zoom: 1,
-  seeds: [],
-  leaderboardSeeds: null,
 };
 
 const elements = {
@@ -19,7 +17,6 @@ const elements = {
   setupModal: document.querySelector("#tournament-setup-modal"),
   setupForm: document.querySelector("#tournament-setup-form"),
   setupMessage: document.querySelector("#setup-message"),
-  seedList: document.querySelector("#setup-seed-list"),
   participantInput: document.querySelector("#setup-participants"),
   participantCount: document.querySelector("#setup-count"),
 };
@@ -283,7 +280,7 @@ function buildStandings() {
   const wrapper = document.createElement("div");
   wrapper.className = "table-wrap";
   const table = document.createElement("table");
-  const columns = ["#", "Participant", ...(state.tournament.settings.poolPlay ? ["Group"] : []), "W-L", "Diff", "Buchholz", "Median-BH"];
+  const columns = ["#", "Team", ...(state.tournament.settings.poolPlay ? ["Group"] : []), "W-L", "Diff", "Buchholz", "Median-BH"];
   const thead = document.createElement("thead");
   const headerRow = document.createElement("tr");
   columns.forEach((column) => {
@@ -402,9 +399,10 @@ function makeScheduleForm(match) {
   return form;
 }
 
-function makeMatchCard(match) {
+function makeMatchCard(match, treeMode = false) {
   const card = document.createElement("article");
-  card.className = `match-card${match.state === "completed" ? " is-complete" : ""}${match.state === "disputed" ? " is-disputed" : ""}`;
+  card.className = `match-card${treeMode ? " tree-match" : ""}${match.state === "completed" ? " is-complete" : ""}${match.state === "disputed" ? " is-disputed" : ""}`;
+  card.dataset.matchId = match.id;
   const header = document.createElement("div");
   header.className = "match-card-heading";
   const label = document.createElement("span");
@@ -451,15 +449,17 @@ function makeMatchCard(match) {
   }
   if (!state.isAdmin) return card;
 
+  const tools = document.createElement("div");
+  tools.className = "match-admin-tools";
   if (match.state === "scheduled" && match.player1Id && match.player2Id) {
     const start = document.createElement("button");
     start.type = "button";
     start.className = "button button-quiet match-start";
     start.textContent = "Start match";
     start.addEventListener("click", () => updateMatch({ action: "start", matchId: match.id }));
-    card.append(start);
+    tools.append(start);
   }
-  if (match.player1Id && match.player2Id) card.append(makeScoreForm(match));
+  if (match.player1Id && match.player2Id) tools.append(makeScoreForm(match));
   if (match.player1Id && match.player2Id && state.isAdmin && match.state !== "completed") {
     const force = document.createElement("div");
     force.className = "match-force-actions";
@@ -471,9 +471,9 @@ function makeMatchCard(match) {
       button.addEventListener("click", () => updateMatch({ action: "force", matchId: match.id, winnerId }));
       force.append(button);
     });
-    card.append(force);
+    tools.append(force);
   }
-  if (match.player1Id && match.player2Id) card.append(makeScheduleForm(match));
+  if (match.player1Id && match.player2Id) tools.append(makeScheduleForm(match));
   if (match.state === "completed") {
     const dispute = document.createElement("button");
     dispute.type = "button";
@@ -481,7 +481,17 @@ function makeMatchCard(match) {
     dispute.textContent = match.state === "disputed" ? "Disputed" : "Flag dispute";
     dispute.disabled = match.state === "disputed";
     dispute.addEventListener("click", () => updateMatch({ action: "dispute", matchId: match.id }));
-    card.append(dispute);
+    tools.append(dispute);
+  }
+  if (treeMode) {
+    const details = document.createElement("details");
+    details.className = "match-admin-details";
+    const summary = document.createElement("summary");
+    summary.textContent = "Manage match";
+    details.append(summary, tools);
+    card.append(details);
+  } else {
+    card.append(tools);
   }
   return card;
 }
@@ -489,7 +499,7 @@ function makeMatchCard(match) {
 function matchGroups(tournament) {
   if (tournament.format === "single_elimination" || tournament.format === "round_robin" || tournament.format === "swiss") {
     const groups = new Map();
-    tournament.matches.forEach((match) => {
+    tournament.matches.filter((match) => match.bracket === "placement" || ["round_robin", "swiss", "group_stage"].includes(match.stage)).forEach((match) => {
       const key = match.bracket === "placement"
         ? "3rd place"
         : match.stage === "group_stage"
@@ -510,6 +520,86 @@ function matchGroups(tournament) {
   return [...groups.entries()];
 }
 
+function drawTreeConnectors(tree, matches) {
+  const rect = tree.getBoundingClientRect();
+  const svg = tree.querySelector(".tree-connectors");
+  if (!svg) return;
+  svg.replaceChildren();
+  svg.setAttribute("viewBox", `0 0 ${rect.width} ${rect.height}`);
+  matches.forEach((match) => {
+    [match.source1, match.source2].filter(Boolean).forEach((source) => {
+      const from = tree.querySelector(`[data-match-id="${source.matchId}"]`);
+      const to = tree.querySelector(`[data-match-id="${match.id}"]`);
+      if (!from || !to) return;
+      const fromRect = from.getBoundingClientRect();
+      const toRect = to.getBoundingClientRect();
+      const fromCenter = fromRect.left + fromRect.width / 2;
+      const toCenter = toRect.left + toRect.width / 2;
+      const sourceToRight = toCenter > fromCenter;
+      const startX = (sourceToRight ? fromRect.right : fromRect.left) - rect.left;
+      const endX = (sourceToRight ? toRect.left : toRect.right) - rect.left;
+      const startY = fromRect.top + fromRect.height / 2 - rect.top;
+      const endY = toRect.top + toRect.height / 2 - rect.top;
+      const middleX = startX + (endX - startX) / 2;
+      const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", `M ${startX} ${startY} H ${middleX} V ${endY} H ${endX}`);
+      path.setAttribute("class", "tree-connector");
+      svg.append(path);
+    });
+  });
+}
+
+function makeEliminationTree(tournament) {
+  const bracketName = tournament.settings.poolPlay ? "playoff" : "main";
+  const matches = tournament.matches.filter((match) => match.bracket === bracketName);
+  if (!matches.length) return null;
+  const finalRound = Math.max(...matches.map((match) => match.round));
+  const slots = 2 ** finalRound;
+  const columnCount = finalRound * 2 - 1;
+  const tree = document.createElement("div");
+  tree.className = "elimination-tree";
+  tree.style.setProperty("--tree-cols", String(columnCount));
+  tree.style.setProperty("--tree-size", String(slots));
+  const labels = document.createElement("div");
+  labels.className = "tree-stage-labels";
+  labels.style.setProperty("--tree-cols", String(columnCount));
+  for (let column = 1; column <= columnCount; column += 1) {
+    const round = Math.min(column, columnCount - column + 1, finalRound);
+    const label = document.createElement("span");
+    label.textContent = round === finalRound ? "Final" : `Round ${round}`;
+    label.style.gridColumn = String(column);
+    labels.append(label);
+  }
+  const grid = document.createElement("div");
+  grid.className = "tree-grid";
+  grid.style.setProperty("--tree-cols", String(columnCount));
+  grid.style.setProperty("--tree-size", String(slots));
+  const svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  svg.classList.add("tree-connectors");
+  svg.setAttribute("aria-hidden", "true");
+  grid.append(svg);
+
+  matches.forEach((match) => {
+    const roundMatches = matches.filter((item) => item.round === match.round);
+    const matchCount = roundMatches.length;
+    const isFinal = match.round === finalRound;
+    const leftSide = match.position <= matchCount / 2;
+    const column = isFinal
+      ? finalRound
+      : leftSide ? match.round : columnCount - match.round + 1;
+    const visualPosition = leftSide ? match.position : matchCount - match.position + 1;
+    const span = 2 ** match.round;
+    const startRow = isFinal ? 1 : (visualPosition - 1) * span + 1;
+    const card = makeMatchCard(match, true);
+    card.style.gridColumn = String(column);
+    card.style.gridRow = `${startRow} / span ${isFinal ? slots : span}`;
+    grid.append(card);
+  });
+  tree.append(labels, grid);
+  requestAnimationFrame(() => drawTreeConnectors(grid, matches));
+  return tree;
+}
+
 function renderBracket() {
   const tournament = state.tournament;
   const viewport = document.createElement("div");
@@ -517,17 +607,45 @@ function renderBracket() {
   const canvas = document.createElement("div");
   canvas.className = "bracket-canvas";
   canvas.style.setProperty("--bracket-zoom", String(state.zoom));
-  matchGroups(tournament).forEach(([headingText, matches]) => {
-    const column = document.createElement("section");
-    column.className = "bracket-round";
-    const heading = document.createElement("h3");
-    heading.textContent = headingText;
-    const cards = document.createElement("div");
-    cards.className = "bracket-round-matches";
-    matches.forEach((match) => cards.append(makeMatchCard(match)));
-    column.append(heading, cards);
-    canvas.append(column);
-  });
+  if (tournament.format === "single_elimination") {
+    const groupMatches = matchGroups(tournament);
+    groupMatches.filter(([name]) => name.includes("Group")).forEach(([headingText, matches]) => {
+      const column = document.createElement("section");
+      column.className = "bracket-round";
+      const heading = document.createElement("h3");
+      heading.textContent = headingText;
+      const cards = document.createElement("div");
+      cards.className = "bracket-round-matches";
+      matches.forEach((match) => cards.append(makeMatchCard(match)));
+      column.append(heading, cards);
+      canvas.append(column);
+    });
+    const tree = makeEliminationTree(tournament);
+    if (tree) canvas.append(tree);
+    groupMatches.filter(([name]) => name === "3rd place").forEach(([headingText, matches]) => {
+      const column = document.createElement("section");
+      column.className = "bracket-round placement-round";
+      const heading = document.createElement("h3");
+      heading.textContent = headingText;
+      const cards = document.createElement("div");
+      cards.className = "bracket-round-matches";
+      matches.forEach((match) => cards.append(makeMatchCard(match)));
+      column.append(heading, cards);
+      canvas.append(column);
+    });
+  } else {
+    matchGroups(tournament).forEach(([headingText, matches]) => {
+      const column = document.createElement("section");
+      column.className = "bracket-round";
+      const heading = document.createElement("h3");
+      heading.textContent = headingText;
+      const cards = document.createElement("div");
+      cards.className = "bracket-round-matches";
+      matches.forEach((match) => cards.append(makeMatchCard(match)));
+      column.append(heading, cards);
+      canvas.append(column);
+    });
+  }
   viewport.append(canvas);
   const controls = document.createElement("div");
   controls.className = "bracket-controls";
@@ -552,6 +670,8 @@ function renderBracket() {
     state.zoom = Math.min(1.25, Math.max(0.65, value));
     range.value = String(state.zoom);
     canvas.style.setProperty("--bracket-zoom", String(state.zoom));
+    const tree = canvas.querySelector(".tree-grid");
+    if (tree) drawTreeConnectors(tree, tournament.matches.filter((match) => match.bracket === (tournament.settings.poolPlay ? "playoff" : "main")));
   };
   zoomOut.addEventListener("click", () => setZoom(state.zoom - 0.1));
   zoomIn.addEventListener("click", () => setZoom(state.zoom + 0.1));
@@ -594,7 +714,7 @@ function render() {
   title.textContent = tournament.title;
   const subtitle = document.createElement("span");
   subtitle.className = "summary-label";
-  subtitle.textContent = `${formatName(tournament.format)} · ${tournament.participants.length} participants · Best of ${tournament.settings.bestOf}`;
+  subtitle.textContent = `${formatName(tournament.format)} · ${tournament.participants.length} teams · Best of ${tournament.settings.bestOf}`;
   titlePanel.append(title, subtitle);
   const statusPanel = document.createElement("article");
   statusPanel.className = "summary-card";
@@ -660,70 +780,7 @@ function openSetup() {
   elements.participantCount.value = "8";
   document.querySelector("#setup-pool-play").disabled = false;
   document.querySelector("#pool-settings").hidden = true;
-  state.seeds = [];
-  renderSeedList();
   elements.setupModal.showModal();
-}
-
-function syncSeedsFromInput() {
-  state.seeds = elements.participantInput.value.split(/\r?\n/).map((name) => name.trim()).filter(Boolean);
-  renderSeedList();
-}
-
-function renderSeedList() {
-  elements.seedList.replaceChildren();
-  state.seeds.forEach((name, index) => {
-    const item = document.createElement("li");
-    item.className = "seed-item";
-    item.draggable = true;
-    item.dataset.seedIndex = String(index);
-    item.tabIndex = 0;
-    const number = document.createElement("strong");
-    number.textContent = `#${index + 1}`;
-    const label = document.createElement("span");
-    label.textContent = name;
-    item.append(number, label);
-    item.addEventListener("dragstart", (event) => {
-      event.dataTransfer.setData("text/plain", String(index));
-      event.dataTransfer.effectAllowed = "move";
-      item.classList.add("is-dragging");
-    });
-    item.addEventListener("dragend", () => item.classList.remove("is-dragging"));
-    item.addEventListener("dragover", (event) => event.preventDefault());
-    item.addEventListener("drop", (event) => {
-      event.preventDefault();
-      const from = Number(event.dataTransfer.getData("text/plain"));
-      const [moved] = state.seeds.splice(from, 1);
-      state.seeds.splice(index, 0, moved);
-      elements.participantInput.value = state.seeds.join("\n");
-      renderSeedList();
-    });
-    item.addEventListener("keydown", (event) => {
-      if (!["ArrowUp", "ArrowDown"].includes(event.key)) return;
-      event.preventDefault();
-      const target = Math.min(state.seeds.length - 1, Math.max(0, index + (event.key === "ArrowUp" ? -1 : 1)));
-      [state.seeds[index], state.seeds[target]] = [state.seeds[target], state.seeds[index]];
-      elements.participantInput.value = state.seeds.join("\n");
-      renderSeedList();
-      elements.seedList.children[target]?.focus();
-    });
-    elements.seedList.append(item);
-  });
-  elements.participantCount.value = String(state.seeds.length || 8);
-}
-
-async function loadLeaderboardSeeds() {
-  try {
-    const result = await request("/api/points");
-    if (!result.players.length) throw new Error("There are no leaderboard participants to seed.");
-    state.leaderboardSeeds = result.players.map((player) => player.ign);
-    state.seeds = [...state.leaderboardSeeds];
-    elements.participantInput.value = state.seeds.join("\n");
-    elements.participantCount.value = String(state.seeds.length);
-    renderSeedList();
-  } catch (error) {
-    elements.setupMessage.textContent = error.message;
-  }
 }
 
 async function logout() {
@@ -763,32 +820,22 @@ elements.loginForm.addEventListener("submit", async (event) => {
 elements.setupForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   elements.setupMessage.textContent = "";
-  syncSeedsFromInput();
+  const teamNames = elements.participantInput.value.split(/\r?\n/).map((name) => name.trim()).filter(Boolean);
   const count = Number(elements.participantCount.value);
-  if (state.seeds.length !== count) {
-    elements.setupMessage.textContent = `Enter exactly ${count} participant names.`;
+  if (teamNames.length !== count) {
+    elements.setupMessage.textContent = `Enter exactly ${count} team names.`;
     return;
   }
-  const seedingType = document.querySelector("#setup-seeding").value;
-  let participantNames = [...state.seeds];
   const submit = elements.setupForm.querySelector('[type="submit"]');
   submit.disabled = true;
   try {
-    if (seedingType === "rank") {
-      const leaderboard = await request("/api/points");
-      const rankByName = new Map(leaderboard.players.map((player, index) => [player.ign.toLocaleLowerCase(), index]));
-      if (participantNames.some((name) => !rankByName.has(name.toLocaleLowerCase()))) {
-          throw new Error("Every participant must already exist on the leaderboard to seed by rank.");
-      }
-      participantNames.sort((first, second) => rankByName.get(first.toLocaleLowerCase()) - rankByName.get(second.toLocaleLowerCase()));
-    }
     const result = await request("/api/admin/tournament", {
       method: "POST",
       body: JSON.stringify({
-          title: document.querySelector("#setup-title-input").value,
-          participants: participantNames,
-          format: document.querySelector("#setup-format").value,
-          seedingType,
+        title: document.querySelector("#setup-title-input").value,
+        participants: teamNames,
+        format: document.querySelector("#setup-format").value,
+        seedingType: "manual",
         settings: {
           bestOf: Number(document.querySelector("#setup-best-of").value),
           consolation: document.querySelector("#setup-consolation").checked,
@@ -811,12 +858,6 @@ elements.setupForm.addEventListener("submit", async (event) => {
   }
 });
 
-elements.participantInput.addEventListener("input", syncSeedsFromInput);
-document.querySelector("#load-leaderboard-seeds").addEventListener("click", loadLeaderboardSeeds);
-document.querySelector("#setup-seeding").addEventListener("change", async (event) => {
-  if (event.target.value !== "rank") return;
-  await loadLeaderboardSeeds();
-});
 document.querySelector("#setup-pool-play").addEventListener("change", (event) => {
   document.querySelector("#pool-settings").hidden = !event.target.checked;
 });
