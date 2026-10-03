@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#111311">
+    <meta name="description" content="Tournament bracket and live standings.">
+    <title>Tournament Bracket | DKE Scrim Points System</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="tournament.css">
+    <script src="tournament.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <a class="brand" href="/" aria-label="DKE Scrim Points System home">
+          <img class="brand-logo" src="assets/dke-logo.png" alt="">
+          <span class="brand-name">DKE Scrim Points System</span>
+        </a>
+        <div class="topbar-right">
+          <a class="button button-quiet" href="/">Points</a>
+          <div id="tournament-admin-controls" class="admin-controls"></div>
+        </div>
+      </header>
+      <main class="main tournament-main">
+        <section class="page-heading">
+          <div>
+            <h1>Tournament Bracket</h1>
+            <p>Live bracket, match results, and tournament standings.</p>
+          </div>
+          <span class="updated-at" id="tournament-updated">Loading tournament...</span>
+        </section>
+        <div id="tournament-message" class="tournament-message" role="status" hidden></div>
+        <section id="tournament-content" aria-live="polite"></section>
+      </main>
+      <footer class="footer">
+        <span>DKE Scrim Points System</span>
+        <span>Tournament results are managed by an admin.</span>
+      </footer>
+    </div>
+
+    <dialog class="modal" id="tournament-login-modal" aria-labelledby="tournament-login-title">
+      <form class="modal-form" id="tournament-login-form">
+        <div class="modal-heading">
+          <h2 id="tournament-login-title">Admin sign in</h2>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <p class="modal-description">Use the same admin credentials as the points dashboard.</p>
+        <label class="field-label" for="tournament-admin-username">Username</label>
+        <input class="field-input" id="tournament-admin-username" name="username" autocomplete="username" required>
+        <label class="field-label" for="tournament-admin-password">Password</label>
+        <input class="field-input" id="tournament-admin-password" name="password" type="password" autocomplete="current-password" required>
+        <p class="form-message" id="tournament-login-message" role="alert"></p>
+        <button class="button button-primary modal-submit" type="submit">Sign in</button>
+      </form>
+    </dialog>
+
+    <dialog class="modal setup-modal" id="tournament-setup-modal" aria-labelledby="setup-title">
+      <form class="modal-form" id="tournament-setup-form">
+        <div class="modal-heading">
+          <h2 id="setup-title">Set up tournament</h2>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <p class="modal-description">Create a tournament. Participant order sets seed order; drag names to reseed manually.</p>
+        <label class="field-label" for="setup-title-input">Tournament name</label>
+        <input class="field-input" id="setup-title-input" maxlength="80" required placeholder="DKE Scrim Cup">
+        <label class="field-label" for="setup-count">Number of participants</label>
+        <input class="field-input" id="setup-count" type="number" min="2" max="256" value="8" required>
+        <label class="field-label" for="setup-format">Bracket format</label>
+        <select class="field-input" id="setup-format">
+          <option value="single_elimination">Single elimination</option>
+          <option value="double_elimination">Double elimination</option>
+          <option value="round_robin">Round robin</option>
+          <option value="swiss">Swiss system</option>
+        </select>
+        <label class="field-label" for="setup-seeding">Seeding</label>
+        <select class="field-input" id="setup-seeding">
+          <option value="manual">Manual order (drag to reseed)</option>
+          <option value="rank">Leaderboard rank (highest points first)</option>
+        </select>
+        <label class="field-label" for="setup-best-of">Match set format</label>
+        <select class="field-input" id="setup-best-of">
+          <option value="1">Single game</option>
+          <option value="3">Best of 3</option>
+          <option value="5">Best of 5</option>
+        </select>
+        <label class="check-row"><input id="setup-pool-play" type="checkbox"> Add round-robin group stage before playoff</label>
+        <div id="pool-settings" class="pool-settings" hidden>
+          <label class="field-label" for="setup-group-count">Number of groups</label>
+          <input class="field-input" id="setup-group-count" type="number" min="2" max="128" value="2">
+          <label class="field-label" for="setup-qualifiers">Qualifiers per group</label>
+          <input class="field-input" id="setup-qualifiers" type="number" min="1" value="2">
+        </div>
+        <label class="field-label" for="setup-participants">Participants (one name per line, in seed order)</label>
+        <textarea class="field-input setup-participants" id="setup-participants" required placeholder="Enter participant names, one per line"></textarea>
+        <div class="setup-seeds">
+          <div class="setup-seeds-heading">
+            <span class="field-label">Seed order</span>
+            <button class="button button-quiet" id="load-leaderboard-seeds" type="button">Use leaderboard order</button>
+          </div>
+          <ol id="setup-seed-list" class="seed-list" aria-label="Draggable participant seed order"></ol>
+          <span id="seed-help" class="field-hint">Drag participants to change their seed.</span>
+        </div>
+        <label class="field-label" for="setup-stations">Stations or courts (optional, one per line)</label>
+        <textarea class="field-input setup-stations" id="setup-stations" placeholder="Court 1&#10;Court 2"></textarea>
+        <label class="check-row"><input id="setup-consolation" type="checkbox"> Add a 3rd-place playoff</label>
+        <p class="form-message" id="setup-message" role="alert"></p>
+        <button class="button button-primary modal-submit" type="submit">Create tournament</button>
+      </form>
+    </dialog>
+  </body>
+</html>

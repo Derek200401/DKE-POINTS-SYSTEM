@@ -18,6 +18,18 @@ When the private Blob store is connected, Vercel provides the storage credential
 
 Use the admin credentials you chose when signing in. Select **Admin sign in** to add an IGN and its starting points. Use **Edit** in that player's row to change their total later. The public leaderboard sorts by points, highest first.
 
+## Tournament brackets
+
+Select **Tournament Bracket** in the dashboard header to open the public read-only tournament view. Admins sign in with the same credentials as the points dashboard and can create one tournament at a time. Tournament data is stored separately from leaderboard points in the same private Vercel Blob store.
+
+Setup accepts 2–256 participants, Single/Double Elimination, Round Robin, and Swiss formats; single-game, Bo3, or Bo5 scoring; optional third-place play; optional round-robin pools feeding a single-elimination playoff; and optional station/court names. Participants entered first receive higher seeds. Admins can drag names to reseed or load the leaderboard order, and choose rank seeding to use live leaderboard points when the tournament is created.
+
+Admins can start matches, enter or override set scores, force a winner, flag a completed result as disputed, schedule a match, assign a station, and finish the tournament. Visitors receive the same bracket and standings without write controls. The public view refreshes every five seconds. Double elimination includes a reset final if the losers-bracket finalist wins the first grand final. Swiss rounds pair similar records without eliminating players and use wins, score differential, head-to-head, Buchholz, and median-Buchholz standings tie-breaks.
+
+The tournament endpoints are `GET /api/tournament` and admin-only `POST`/`PATCH /api/admin/tournament`. Shared request-origin checks, signed admin sessions, and Blob configuration are the same as the existing admin API. The shape declarations live in `lib/tournament.d.ts`; bracket generation and result progression are in `lib/tournament.js`.
+
+This implementation is admin-operated: it does not expose participant self-reporting, screenshot uploads, community predictions/voting, or unattended automatic forfeits. Match countdowns are informational; an admin must enter or force a result. Vercel Blob stores a single JSON tournament document, so this is intended for a single active admin-managed event rather than concurrent tournament editing by multiple moderators.
+
 ## Run locally
 
 Install Node.js 20 or later and the Vercel CLI, then copy `.env.example` to `.env.local`. Connect a Vercel Blob store to the project and use `vercel env pull` to load its local development credentials. Run the app with `npx vercel dev`.
