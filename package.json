@@ -1,0 +1,11 @@
+{
+  "name": "dke-scrim-points-system",
+  "version": "1.0.0",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@vercel/blob": "^2.8.0"
+  }
+}
