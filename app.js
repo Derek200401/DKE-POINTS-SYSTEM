@@ -359,7 +359,7 @@ function scheduleResultPreview() {
   const blueCount = sides.filter((side) => side.value === "left").length;
   const redCount = sides.filter((side) => side.value === "right").length;
   elements.reviewResultWarning.textContent =
-    `AI detected ${elements.reviewWinnerSide.value === "left" ? "VICTORY — blue team wins" : "DEFEAT — red team wins"}. Roster: Blue ${blueCount}/5 · Red ${redCount}/5.`;
+    `AI detected the ${elements.reviewWinnerSide.value === "left" ? "blue/left" : "red/right"} team as the winner. Roster: Blue ${blueCount}/5 · Red ${redCount}/5.`;
   elements.approveResultSubmit.disabled = true;
   elements.reviewResultMessage.textContent = "";
   elements.reviewPlayerList.querySelectorAll(".result-review-award").forEach((element) => {

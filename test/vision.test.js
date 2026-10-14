@@ -15,10 +15,11 @@ function players(prefix, side, ratings = [8.4, 7.2, 6.5, 4.2, 3.1]) {
   }));
 }
 
-function extraction(result = "victory") {
+function extraction(result = "victory", winnerSide = result.toLowerCase() === "victory" ? "left" : "right") {
   return {
     readable: true,
     result,
+    winner_side: winnerSide,
     formatted_response:
       "Here are the rating scores for each player based on the end-of-game scoreboard:",
     teams: [
@@ -52,6 +53,18 @@ test("maps Victory to blue/left and returns exactly five players on each side", 
 test("maps Defeat to red/right", () => {
   const result = validateExtraction(extraction("Defeat"));
   assert.equal(result.winnerSide, "right");
+});
+
+test("accepts the winning team on the right without swapping the physical team sides", () => {
+  const result = validateExtraction(extraction("Victory", "right"));
+  assert.equal(result.winnerSide, "right");
+  assert.deepEqual(
+    result.teams.map((team) => [team.side, team.players[0].ign]),
+    [
+      ["left", "Blue-1"],
+      ["right", "Red-1"],
+    ],
+  );
 });
 
 test("uses the VyceAI OpenAI-compatible vision request and returns all ten extracted players", async () => {
@@ -105,6 +118,10 @@ test("uses the VyceAI OpenAI-compatible vision request and returns all ten extra
       body.messages[0].content[0].text,
       /Do not invent or calculate points/,
     );
+    assert.match(
+      body.messages[0].content[0].text,
+      /winner_side as the physical side \(left or right\)/,
+    );
     assert.equal(result.winnerSide, "left");
     assert.equal(
       result.teams.reduce((total, team) => total + team.players.length, 0),
@@ -156,6 +173,18 @@ test("rejects an extraction unless both teams have exactly five players", () => 
       error instanceof VisionError &&
       error.status === 422 &&
       /exactly five/.test(error.message),
+  );
+});
+
+test("rejects an extraction without an explicit physical winning side", () => {
+  const missingWinnerSide = extraction();
+  delete missingWinnerSide.winner_side;
+  assert.throws(
+    () => validateExtraction(missingWinnerSide),
+    (error) =>
+      error instanceof VisionError &&
+      error.status === 422 &&
+      /which physical side won/.test(error.message),
   );
 });
 
