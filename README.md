@@ -1,6 +1,6 @@
 # DKE Scrim Points System
 
-A small leaderboard for the scrim group. Visitors can see each IGN and point total. The admin can add players and edit points. The page refreshes the standings every four seconds.
+A small leaderboard for the scrim group. Visitors can see each IGN and point total. The admin can add players, edit points, or scan Mobile Legends result screenshots to calculate game points. The page refreshes the standings every four seconds.
 
 The site and its serverless API run on Vercel. Player totals are saved in a **private Vercel Blob store** connected to the Vercel project. There is no Supabase setup.
 
@@ -12,11 +12,30 @@ The site and its serverless API run on Vercel. Player totals are saved in a **pr
    - `ADMIN_USERNAME` — your chosen admin username
    - `ADMIN_PASSWORD` — your chosen admin password
    - `ADMIN_SESSION_SECRET` — a private random value with at least 32 characters
+   - `VYCEAI_API_KEY` — a private VyceAI API key, stored only as a server environment variable
+   - `VYCEAI_MODEL` — optional; defaults to `deepseek-v4-flash`
 4. Deploy the project.
 
-When the private Blob store is connected, Vercel provides the storage credentials to the server functions. Do not expose those credentials in the browser or commit them to the repository. The first admin save creates the players file; until then, the leaderboard is empty.
+When the private Blob store is connected, Vercel provides the storage credentials to the server functions. Do not expose Blob or VyceAI credentials in the browser or commit them to the repository. If an API key has been shared publicly, revoke it and configure a newly rotated key in Vercel. The first admin save creates the players file; until then, the leaderboard is empty.
 
-Use the admin credentials you chose when signing in. Select **Admin sign in** to add an IGN and its starting points. Use **Edit** in that player's row to change their total later. The public leaderboard sorts by points, highest first.
+Use the admin credentials you chose when signing in. Select **Admin sign in** to add an IGN and its starting points. Use **Edit** in that player's row to change their total later. To award a game, select **Submit game result**, upload a screenshot, then review and correct every detected team, IGN, rating, and award before selecting **Approve & add points**. The image is sent to VyceAI for analysis and is not saved by this site. No points are changed until the signed-in admin approves the review. The public leaderboard sorts by points, highest first.
+
+The result scan accepts JPEG, PNG, or WebP screenshots (up to 12 MB before browser resizing and 2 MB after processing). VyceAI analysis runs server-side through `https://vyceai.com/v1/chat/completions`; the API key is never sent to the browser. The server validates the extracted data, calculates awards, enforces the point limit, and prevents the same exact screenshot from being applied twice. Existing IGN matches receive additional points; new IGN names are added to the leaderboard. Applied screenshot hashes are stored with the private player data in Vercel Blob.
+
+### Mobile Legends result points
+
+Ratings are read to one decimal place. The highest rating on each team receives the applicable MVP award; if there is a tie for highest rating, each tied player receives that MVP award. An admin can correct the winner, team, IGN, or rating in the review before points are applied.
+
+| Winning team | Points | Losing team | Points |
+| --- | ---: | --- | ---: |
+| Bronze (3.0–4.0) | 3 | Bronze (3.0–4.0) | 2 |
+| Silver (4.1–7.0) | 5 | Silver (4.1–7.0) | 3 |
+| Gold (7.1–10.0) | 7 | Gold (7.1–10.0) | 5 |
+| Supreme (10.1+, non-MVP) | 7 | MVP Loss (highest rating, 6.6+) | 10 |
+| MVP Gold (highest rating, up to 10.0) | 12 |  |  |
+| Supreme MVP (highest rating, 10.1+) | 12 |  |  |
+
+Ratings below 3.0 without an MVP award receive zero points. Losing-team ratings above 10.0 that do not qualify for MVP Loss receive zero points.
 
 ## Tournament brackets
 
@@ -28,29 +47,15 @@ Admins can start matches, enter or override set scores, force a winner, flag a c
 
 The tournament endpoints are `GET /api/tournament` and admin-only `POST`/`PATCH /api/admin/tournament`. Shared request-origin checks, signed admin sessions, and Blob configuration are the same as the existing admin API. The shape declarations live in `lib/tournament.d.ts`; bracket generation and result progression are in `lib/tournament.js`.
 
-This implementation is admin-operated: it does not expose participant self-reporting, screenshot uploads, community predictions/voting, or unattended automatic forfeits. Match countdowns are informational; an admin must enter or force a result. Vercel Blob stores a single JSON tournament document, so this is intended for a single active admin-managed event rather than concurrent tournament editing by multiple moderators.
+The admin result endpoint is `POST /api/admin/results`; it scans screenshots, previews server-calculated awards, and applies approved results. It uses the same signed admin session and same-origin protections as the other write endpoints.
+
+This implementation is admin-operated: it does not expose participant self-reporting, community predictions/voting, or unattended automatic forfeits. Match countdowns are informational; an admin must enter or force a result. Vercel Blob stores a single JSON tournament document, so this is intended for a single active admin-managed event rather than concurrent tournament editing by multiple moderators.
 
 ## Run locally
 
 Install Node.js 20 or later and the Vercel CLI, then copy `.env.example` to `.env.local`. Connect a Vercel Blob store to the project and use `vercel env pull` to load its local development credentials. Run the app with `npx vercel dev`.
 
-## Point values
-
-Lose Team:
-
-- MVP Medal: 10
-- Gold Medal: 5
-- Silver Medal: 3
-- Bronze Medal: 2
-
-Winning Team:
-
-- MVP Medal: 12
-- Gold Medal: 7
-- Silver Medal: 5
-- Bronze Medal: 3
-
-Prizes:
+## Prizes
 
 - Top 1: ₱700
 - Top 2: ₱500

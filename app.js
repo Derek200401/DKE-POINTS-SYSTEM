@@ -27,7 +27,26 @@ const elements = {
   liveLabel: document.querySelector("#live-label"),
   lastUpdated: document.querySelector("#last-updated"),
   actionsHeading: document.querySelector("#actions-heading"),
+  addResultButton: document.querySelector("#add-result-button"),
+  uploadResultModal: document.querySelector("#result-upload-modal"),
+  uploadResultForm: document.querySelector("#result-upload-form"),
+  resultImage: document.querySelector("#result-image"),
+  resultImagePreview: document.querySelector("#result-image-preview"),
+  uploadResultMessage: document.querySelector("#result-upload-message"),
+  scanResultSubmit: document.querySelector("#result-scan-submit"),
+  reviewResultModal: document.querySelector("#result-review-modal"),
+  reviewResultForm: document.querySelector("#result-review-form"),
+  reviewWinnerSide: document.querySelector("#result-winner-side"),
+  reviewPlayerList: document.querySelector("#result-review-list"),
+  reviewResultWarning: document.querySelector("#result-review-warning"),
+  reviewResultMessage: document.querySelector("#result-review-message"),
+  approveResultSubmit: document.querySelector("#result-approve-submit"),
 };
+
+let scannedSubmission = null;
+let previewTimer = null;
+let previewGeneration = 0;
+let resultPreviewUrl = null;
 
 function makeElement(tagName, className, text) {
   const element = document.createElement(tagName);
@@ -87,6 +106,7 @@ function renderLeaderboard() {
   elements.noResults.hidden = state.players.length === 0 || players.length > 0;
   elements.actionsHeading.hidden = !state.isAdmin;
   document.querySelector("#add-player-button").hidden = !state.isAdmin;
+  elements.addResultButton.hidden = !state.isAdmin;
 
   players.forEach((player) => {
     const row = document.createElement("tr");
@@ -201,6 +221,248 @@ async function signOut() {
     elements.lastUpdated.textContent = error.message;
   }
 }
+
+function openResultUpload() {
+  if (resultPreviewUrl) URL.revokeObjectURL(resultPreviewUrl);
+  resultPreviewUrl = null;
+  elements.uploadResultForm.reset();
+  elements.uploadResultMessage.textContent = "";
+  elements.resultImagePreview.hidden = true;
+  elements.resultImagePreview.removeAttribute("src");
+  scannedSubmission = null;
+  elements.uploadResultModal.showModal();
+  elements.resultImage.focus();
+}
+
+async function prepareResultImage(file) {
+  if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+    throw new Error("Choose a JPEG, PNG, or WebP screenshot.");
+  }
+  if (file.size > 12 * 1024 * 1024) {
+    throw new Error("Choose an image smaller than 12 MB.");
+  }
+
+  let bitmap;
+  let source;
+  let objectUrl;
+  try {
+    if (typeof createImageBitmap === "function") {
+      bitmap = await createImageBitmap(file);
+      source = bitmap;
+    } else {
+      objectUrl = URL.createObjectURL(file);
+      source = await new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error("The selected image could not be opened."));
+        image.src = objectUrl;
+      });
+    }
+    const scale = Math.min(1, 1600 / Math.max(source.width, source.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.max(1, Math.round(source.width * scale));
+    canvas.height = Math.max(1, Math.round(source.height * scale));
+    const context = canvas.getContext("2d");
+    if (!context) throw new Error("This browser cannot prepare the screenshot.");
+    context.drawImage(source, 0, 0, canvas.width, canvas.height);
+
+    for (const quality of [0.88, 0.78, 0.68, 0.58]) {
+      const dataUrl = canvas.toDataURL("image/jpeg", quality);
+      if (dataUrl.length <= 2800000) return dataUrl;
+    }
+    throw new Error("This screenshot is too large to scan. Choose a smaller image.");
+  } finally {
+    if (bitmap) bitmap.close();
+    if (objectUrl) URL.revokeObjectURL(objectUrl);
+  }
+}
+
+function addReviewPlayer(player = {}) {
+  const row = document.createElement("div");
+  row.className = "result-review-row";
+
+  const side = document.createElement("select");
+  side.className = "field-input result-review-side";
+  side.setAttribute("aria-label", "Team side");
+  [["left", "Left / blue"], ["right", "Right / red"]].forEach(([value, label]) => {
+    const option = document.createElement("option");
+    option.value = value;
+    option.textContent = label;
+    side.append(option);
+  });
+  side.value = player.side || "left";
+
+  const ign = document.createElement("input");
+  ign.className = "field-input result-review-ign";
+  ign.type = "text";
+  ign.maxLength = 40;
+  ign.required = true;
+  ign.autocomplete = "off";
+  ign.setAttribute("aria-label", "Player IGN");
+  ign.value = player.ign || "";
+  ign.placeholder = "Exact IGN";
+
+  const rating = document.createElement("input");
+  rating.className = "field-input result-review-rating";
+  rating.type = "number";
+  rating.min = "0";
+  rating.max = "30";
+  rating.step = "0.1";
+  rating.required = true;
+  rating.setAttribute("aria-label", "Performance rating");
+  rating.value = player.rating ?? "";
+
+  const award = document.createElement("span");
+  award.className = "result-review-award";
+  award.textContent = "Checking points…";
+
+  const remove = document.createElement("button");
+  remove.className = "icon-button result-review-remove";
+  remove.type = "button";
+  remove.textContent = "×";
+  remove.setAttribute("aria-label", "Remove participant");
+  remove.addEventListener("click", () => {
+    row.remove();
+    scheduleResultPreview();
+  });
+
+  row.append(side, ign, rating, award, remove);
+  elements.reviewPlayerList.append(row);
+}
+
+function getReviewInput() {
+  return {
+    winnerSide: elements.reviewWinnerSide.value,
+    players: [...elements.reviewPlayerList.querySelectorAll(".result-review-row")].map((row) => {
+      const rating = row.querySelector(".result-review-rating").value.trim();
+      return {
+        side: row.querySelector(".result-review-side").value,
+        ign: row.querySelector(".result-review-ign").value,
+        rating: rating ? Number(rating) : null,
+      };
+    }),
+  };
+}
+
+function scheduleResultPreview() {
+  window.clearTimeout(previewTimer);
+  const generation = ++previewGeneration;
+  elements.approveResultSubmit.disabled = true;
+  elements.reviewResultMessage.textContent = "";
+  elements.reviewPlayerList.querySelectorAll(".result-review-award").forEach((element) => {
+    element.textContent = "Checking points…";
+  });
+
+  previewTimer = window.setTimeout(async () => {
+    try {
+      const result = await request("/api/admin/results", {
+        method: "POST",
+        body: JSON.stringify({ action: "preview", ...getReviewInput() }),
+      });
+      if (generation !== previewGeneration) return;
+      const rows = [...elements.reviewPlayerList.querySelectorAll(".result-review-row")];
+      result.awards.forEach((award, index) => {
+        rows[index].querySelector(".result-review-award").textContent = `${award.medal} · ${award.points} pts`;
+      });
+      elements.approveResultSubmit.disabled = !scannedSubmission;
+    } catch (error) {
+      if (generation !== previewGeneration) return;
+      elements.reviewResultMessage.textContent = error.message;
+    }
+  }, 200);
+}
+
+elements.addResultButton.addEventListener("click", openResultUpload);
+elements.resultImage.addEventListener("change", () => {
+  const file = elements.resultImage.files[0];
+  if (!file) {
+    elements.resultImagePreview.hidden = true;
+    return;
+  }
+  if (resultPreviewUrl) URL.revokeObjectURL(resultPreviewUrl);
+  resultPreviewUrl = URL.createObjectURL(file);
+  elements.resultImagePreview.src = resultPreviewUrl;
+  elements.resultImagePreview.hidden = false;
+});
+
+elements.uploadResultForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  elements.uploadResultMessage.textContent = "";
+  const file = elements.resultImage.files[0];
+  if (!file) {
+    elements.uploadResultMessage.textContent = "Choose a result screenshot first.";
+    return;
+  }
+  elements.scanResultSubmit.disabled = true;
+  elements.scanResultSubmit.textContent = "Scanning…";
+  try {
+    const image = await prepareResultImage(file);
+    const result = await request("/api/admin/results", {
+      method: "POST",
+      body: JSON.stringify({ action: "analyze", image }),
+    });
+    scannedSubmission = { imageHash: result.imageHash };
+    elements.reviewWinnerSide.value = result.winnerSide;
+    elements.reviewPlayerList.replaceChildren();
+    result.participants.forEach(addReviewPlayer);
+    elements.reviewResultWarning.textContent = [
+      `AI detected ${result.result.toUpperCase()}.`,
+      ...(result.warnings || []),
+    ].join(" ");
+    elements.reviewResultMessage.textContent = "";
+    elements.uploadResultModal.close();
+    elements.reviewResultModal.showModal();
+    scheduleResultPreview();
+  } catch (error) {
+    elements.uploadResultMessage.textContent = error.message;
+  } finally {
+    elements.scanResultSubmit.disabled = false;
+    elements.scanResultSubmit.textContent = "Scan screenshot";
+  }
+});
+
+elements.reviewWinnerSide.addEventListener("change", scheduleResultPreview);
+elements.reviewPlayerList.addEventListener("input", scheduleResultPreview);
+elements.reviewPlayerList.addEventListener("change", scheduleResultPreview);
+document.querySelector("#add-left-result-player").addEventListener("click", () => {
+  addReviewPlayer({ side: "left" });
+  scheduleResultPreview();
+});
+document.querySelector("#add-right-result-player").addEventListener("click", () => {
+  addReviewPlayer({ side: "right" });
+  scheduleResultPreview();
+});
+elements.reviewResultForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!scannedSubmission) return;
+  elements.approveResultSubmit.disabled = true;
+  elements.approveResultSubmit.textContent = "Applying points…";
+  elements.reviewResultMessage.textContent = "";
+  let applied = false;
+  try {
+    await request("/api/admin/results", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "apply",
+        imageHash: scannedSubmission.imageHash,
+        ...getReviewInput(),
+      }),
+    });
+    scannedSubmission = null;
+    applied = true;
+    elements.reviewResultModal.close();
+    await loadPlayers();
+  } catch (error) {
+    elements.reviewResultMessage.textContent = error.message;
+  } finally {
+    elements.approveResultSubmit.textContent = "Approve & add points";
+    if (applied) {
+      elements.approveResultSubmit.disabled = true;
+    } else {
+      elements.approveResultSubmit.disabled = !scannedSubmission;
+    }
+  }
+});
 
 elements.loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();

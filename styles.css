@@ -112,7 +112,7 @@ button:focus-visible, a:focus-visible, input:focus-visible {
 .panel { overflow: hidden; border: 1px solid var(--border); border-radius: 9px; background: var(--surface); }
 .panel-heading { min-height: 60px; display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 12px 17px; border-bottom: 1px solid var(--border); }
 .panel-title { margin: 0; font-size: 15px; font-weight: 600; }
-.panel-actions { display: flex; align-items: center; gap: 10px; }
+.panel-actions { display: flex; align-items: center; gap: 8px; }
 .search {
   width: 205px;
   height: 35px;
@@ -170,7 +170,7 @@ td { color: #dce1d9; font-size: 13px; }
 .scoring-copy { margin: 5px 0 14px; color: var(--muted); font-size: 11px; }
 .scoring-groups { display: grid; gap: 16px; }
 .scoring-group-title { margin: 0 0 8px; color: var(--text); font-size: 12px; font-weight: 600; }
-.scoring-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.scoring-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
 .scoring-list-prizes { grid-template-columns: repeat(5, 1fr); }
 .scoring-item { min-height: 57px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 7px; background: var(--page); }
 .scoring-item span { color: var(--muted); font-size: 11px; }
@@ -205,6 +205,54 @@ td { color: #dce1d9; font-size: 13px; }
 .field-input[readonly] { color: var(--muted); }
 .form-message { min-height: 17px; margin: -5px 0 8px; color: var(--danger); font-size: 11px; }
 .modal-submit { width: 100%; min-height: 40px; }
+.result-modal {
+  width: min(780px, calc(100% - 28px));
+  max-height: min(90vh, 900px);
+  overflow-y: auto;
+}
+.result-modal .modal-form { gap: 3px; }
+.result-file { width: 100%; height: auto; min-height: 40px; padding: 9px; }
+.result-image-preview {
+  display: block;
+  width: 100%;
+  max-height: 270px;
+  margin: 2px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  object-fit: contain;
+}
+.result-privacy, .result-review-hint {
+  margin: 0 0 12px;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.result-review-hint { margin: -5px 0 12px; }
+.result-review-columns, .result-review-row {
+  display: grid;
+  grid-template-columns: 104px minmax(130px, 1fr) 86px minmax(120px, .8fr) 34px;
+  align-items: center;
+  gap: 7px;
+}
+.result-review-columns {
+  padding: 0 4px 6px;
+  color: var(--muted);
+  font-size: 10px;
+}
+.result-review-list { display: grid; gap: 7px; }
+.result-review-row { min-width: 0; }
+.result-review-row .field-input { width: 100%; height: 37px; min-width: 0; margin: 0; padding: 0 7px; }
+.result-review-side { font-size: 10px; }
+.result-review-ign { font-size: 12px; }
+.result-review-rating { font-variant-numeric: tabular-nums; }
+.result-review-award { color: var(--accent); font-size: 10px; line-height: 1.4; }
+.result-review-remove { justify-self: end; }
+.result-review-add, .result-review-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.result-review-add { margin: 12px 0; }
+.result-review-add .button, .result-review-actions .button { min-height: 34px; font-size: 11px; }
+.result-review-warning { margin: 4px 0 8px; color: var(--accent); font-size: 11px; line-height: 1.5; }
+.result-review-actions { justify-content: flex-end; margin-top: 8px; }
+.result-review-actions .button-primary { min-width: 190px; }
 
 @media (max-width: 680px) {
   .app-shell { width: min(100% - 32px, 520px); }
@@ -225,12 +273,19 @@ td { color: #dce1d9; font-size: 13px; }
   .summary-card:nth-child(2) .summary-value { font-size: 14px; }
   .panel-heading { align-items: stretch; flex-direction: column; padding: 14px 12px; }
   .panel-actions { justify-content: space-between; }
+  .panel-actions { flex-wrap: wrap; }
   .search { width: min(100%, 230px); }
   td, th { padding-right: 11px; padding-left: 11px; }
   .rank-cell { width: 52px; }
   .points-heading, .points-cell { width: 82px; }
   .action-heading, .actions-cell { width: 72px; }
   .scoring-list, .scoring-list-prizes { grid-template-columns: repeat(2, 1fr); }
+  .result-review-columns { display: none; }
+  .result-review-row { grid-template-columns: 90px minmax(100px, 1fr) 72px 30px; }
+  .result-review-award { grid-column: 2 / 4; }
+  .result-review-remove { grid-column: 4; grid-row: 1 / 3; }
+  .result-review-actions { flex-direction: column-reverse; }
+  .result-review-actions .button { width: 100%; }
 }
 
 @media (max-width: 390px) {

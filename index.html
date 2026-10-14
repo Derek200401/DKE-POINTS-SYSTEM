@@ -55,6 +55,7 @@
             <div class="panel-actions">
               <label class="visually-hidden" for="search-input">Search players</label>
               <input class="search" id="search-input" type="search" placeholder="Search IGN..." autocomplete="off">
+              <button class="button button-quiet" id="add-result-button" type="button" hidden>+ Submit game result</button>
               <button class="button button-primary" id="add-player-button" type="button" hidden>+ Add player</button>
             </div>
           </div>
@@ -89,22 +90,24 @@
           <h2 class="scoring-heading" id="scoring-heading">Points per round</h2>
           <p class="scoring-copy">The points awarded for each result.</p>
           <div class="scoring-groups">
-            <div class="scoring-group scoring-group-lose">
-              <h3 class="scoring-group-title">Lose Team</h3>
-              <div class="scoring-list">
-                <div class="scoring-item"><span>MVP Medal</span><strong>10 pts</strong></div>
-                <div class="scoring-item"><span>Gold Medal</span><strong>5 pts</strong></div>
-                <div class="scoring-item"><span>Silver Medal</span><strong>3 pts</strong></div>
-                <div class="scoring-item"><span>Bronze Medal</span><strong>2 pts</strong></div>
-              </div>
-            </div>
             <div class="scoring-group scoring-group-win">
               <h3 class="scoring-group-title">Winning Team</h3>
               <div class="scoring-list">
-                <div class="scoring-item"><span>MVP Medal</span><strong>12 pts</strong></div>
-                <div class="scoring-item"><span>Gold Medal</span><strong>7 pts</strong></div>
-                <div class="scoring-item"><span>Silver Medal</span><strong>5 pts</strong></div>
-                <div class="scoring-item"><span>Bronze Medal</span><strong>3 pts</strong></div>
+                <div class="scoring-item"><span>Bronze · 3.0–4.0</span><strong>3 pts</strong></div>
+                <div class="scoring-item"><span>Silver · 4.1–7.0</span><strong>5 pts</strong></div>
+                <div class="scoring-item"><span>Gold · 7.1–10.0</span><strong>7 pts</strong></div>
+                <div class="scoring-item"><span>Supreme · 10.1+ (non-MVP)</span><strong>7 pts</strong></div>
+                <div class="scoring-item"><span>MVP Gold · highest, up to 10.0</span><strong>12 pts</strong></div>
+                <div class="scoring-item"><span>Supreme MVP · highest, 10.1+</span><strong>12 pts</strong></div>
+              </div>
+            </div>
+            <div class="scoring-group scoring-group-lose">
+              <h3 class="scoring-group-title">Losing Team</h3>
+              <div class="scoring-list">
+                <div class="scoring-item"><span>Bronze · 3.0–4.0</span><strong>2 pts</strong></div>
+                <div class="scoring-item"><span>Silver · 4.1–7.0</span><strong>3 pts</strong></div>
+                <div class="scoring-item"><span>Gold · 7.1–10.0</span><strong>5 pts</strong></div>
+                <div class="scoring-item"><span>MVP Loss · highest, 6.6+</span><strong>10 pts</strong></div>
               </div>
             </div>
             <div class="scoring-group scoring-group-prizes">
@@ -157,6 +160,52 @@
         <input class="field-input" id="player-points" name="points" type="number" min="0" max="1000000" step="1" value="0" required>
         <p class="form-message" id="player-message" role="alert"></p>
         <button class="button button-primary modal-submit" id="player-submit" type="submit">Add player</button>
+      </form>
+    </dialog>
+
+    <dialog class="modal result-modal" id="result-upload-modal" aria-labelledby="result-upload-title">
+      <form class="modal-form" id="result-upload-form">
+        <div class="modal-heading">
+          <h2 id="result-upload-title">Submit game result</h2>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <p class="modal-description">Upload a Mobile Legends result screenshot. The AI will read the teams and ratings; nothing is added until you review and approve it.</p>
+        <label class="field-label" for="result-image">Result screenshot</label>
+        <input class="field-input result-file" id="result-image" type="file" accept="image/jpeg,image/png,image/webp" required>
+        <img class="result-image-preview" id="result-image-preview" alt="Selected result screenshot preview" hidden>
+        <p class="result-privacy">The image is sent to VyceAI for analysis and is not saved by this website.</p>
+        <p class="form-message" id="result-upload-message" role="alert"></p>
+        <button class="button button-primary modal-submit" id="result-scan-submit" type="submit">Scan screenshot</button>
+      </form>
+    </dialog>
+
+    <dialog class="modal result-modal" id="result-review-modal" aria-labelledby="result-review-title">
+      <form class="modal-form" id="result-review-form">
+        <div class="modal-heading">
+          <h2 id="result-review-title">Review detected results</h2>
+          <button class="icon-button" type="button" data-close-modal aria-label="Close">×</button>
+        </div>
+        <p class="modal-description">Check every IGN, rating, team, and point award. Correct anything the AI misread before approving.</p>
+        <label class="field-label" for="result-winner-side">Winning team</label>
+        <select class="field-input" id="result-winner-side">
+          <option value="left">Left / blue team</option>
+          <option value="right">Right / red team</option>
+        </select>
+        <p class="result-review-hint">MVP is the highest-rated player on that team. If ratings tie, each tied player receives the MVP award.</p>
+        <div class="result-review-columns">
+          <span>Team</span><span>IGN</span><span>Rating</span><span>Medal / points</span><span></span>
+        </div>
+        <div class="result-review-list" id="result-review-list"></div>
+        <div class="result-review-add">
+          <button class="button button-quiet" id="add-left-result-player" type="button">+ Add left player</button>
+          <button class="button button-quiet" id="add-right-result-player" type="button">+ Add right player</button>
+        </div>
+        <p class="result-review-warning" id="result-review-warning" role="status"></p>
+        <p class="form-message" id="result-review-message" role="alert"></p>
+        <div class="result-review-actions">
+          <button class="button button-quiet" type="button" data-close-modal>Cancel</button>
+          <button class="button button-primary" id="result-approve-submit" type="submit" disabled>Approve &amp; add points</button>
+        </div>
       </form>
     </dialog>
   </body>
