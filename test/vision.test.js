@@ -48,7 +48,7 @@ test("uses the Gemini Interactions API image request and returns all ten extract
   const originalModel = process.env.GEMINI_MODEL;
   const originalFetch = global.fetch;
   process.env.GEMINI_API_KEY = "test-only-not-a-real-key";
-  delete process.env.GEMINI_MODEL;
+  process.env.GEMINI_MODEL = "gemini-2.5-flash";
   let apiUrl;
   let apiRequest;
   global.fetch = async (request) => {
@@ -91,6 +91,33 @@ test("uses the Gemini Interactions API image request and returns all ten extract
     else process.env.GEMINI_API_KEY = originalKey;
     if (originalModel === undefined) delete process.env.GEMINI_MODEL;
     else process.env.GEMINI_MODEL = originalModel;
+    global.fetch = originalFetch;
+  }
+});
+
+test("reports the configured model's provider error when the Interactions API returns 404", async () => {
+  const originalKey = process.env.GEMINI_API_KEY;
+  const originalFetch = global.fetch;
+  process.env.GEMINI_API_KEY = "test-only-not-a-real-key";
+  global.fetch = async () => new Response(JSON.stringify({
+    error: {
+      code: 404,
+      message: "Requested model was not found.",
+      status: "NOT_FOUND",
+    },
+  }), {
+    status: 404,
+    headers: { "Content-Type": "application/json" },
+  });
+
+  try {
+    await assert.rejects(
+      analyzeResultImage("data:image/jpeg;base64,/9j/2Q=="),
+      (error) => error instanceof VisionError && /gemini-3\.8-flash/.test(error.message),
+    );
+  } finally {
+    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
+    else process.env.GEMINI_API_KEY = originalKey;
     global.fetch = originalFetch;
   }
 });
