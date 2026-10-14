@@ -192,6 +192,33 @@ test("returns a clear error when VyceAI does not return a JSON player roster", a
   }
 });
 
+test("shows the provider's HTTP 400 reason instead of hiding it", async () => {
+  const originalKey = process.env.VYCEAI_API_KEY;
+  const originalFetch = global.fetch;
+  process.env.VYCEAI_API_KEY = "test-only-not-a-real-key";
+  global.fetch = async () =>
+    new Response(JSON.stringify({
+      error: { message: "This model does not support image input." },
+    }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  try {
+    await assert.rejects(
+      analyzeResultImage("data:image/jpeg;base64,/9j/2Q=="),
+      (error) =>
+        error instanceof VisionError &&
+        /HTTP 400/.test(error.message) &&
+        /does not support image input/.test(error.message),
+    );
+  } finally {
+    if (originalKey === undefined) delete process.env.VYCEAI_API_KEY;
+    else process.env.VYCEAI_API_KEY = originalKey;
+    global.fetch = originalFetch;
+  }
+});
+
 test("reports VyceAI model access errors", async () => {
   const originalKey = process.env.VYCEAI_API_KEY;
   const originalFetch = global.fetch;

@@ -259,7 +259,7 @@ async function prepareResultImage(file) {
       });
     }
     const sourceLongestEdge = Math.max(source.width, source.height);
-    const scale = Math.min(1.5, 3000 / sourceLongestEdge);
+    const scale = Math.min(1.75, 3600 / sourceLongestEdge);
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(source.width * scale));
     canvas.height = Math.max(1, Math.round(source.height * scale));
@@ -267,7 +267,7 @@ async function prepareResultImage(file) {
     if (!context) throw new Error("This browser cannot prepare the screenshot.");
     context.imageSmoothingEnabled = true;
     context.imageSmoothingQuality = "high";
-    context.filter = "contrast(1.12) brightness(1.03)";
+    context.filter = "contrast(1.18) brightness(1.04)";
     context.drawImage(source, 0, 0, canvas.width, canvas.height);
     context.filter = "none";
 
