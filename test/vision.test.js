@@ -43,26 +43,19 @@ test("maps Defeat to red/right", () => {
   assert.equal(result.winnerSide, "right");
 });
 
-test("uses the Gemini Interactions API image request and returns all ten extracted players", async () => {
-  const originalKey = process.env.GEMINI_API_KEY;
-  const originalModel = process.env.GEMINI_MODEL;
+test("uses the VyceAI OpenAI-compatible vision request and returns all ten extracted players", async () => {
+  const originalKey = process.env.VYCEAI_API_KEY;
   const originalFetch = global.fetch;
-  process.env.GEMINI_API_KEY = "test-only-not-a-real-key";
-  process.env.GEMINI_MODEL = "gemini-2.5-flash";
+  process.env.VYCEAI_API_KEY = "test-only-not-a-real-key";
   let apiUrl;
   let apiRequest;
-  global.fetch = async (request) => {
-    apiUrl = String(request.url || request);
-    apiRequest = request;
+  global.fetch = async (url, options) => {
+    apiUrl = String(url);
+    apiRequest = options;
     return new Response(JSON.stringify({
-      id: "test-interaction",
-      status: "completed",
-      model: "gemini-3.8-flash",
-      steps: [{
-        type: "model_output",
-        content: [{ type: "text", text: JSON.stringify(extraction("Victory")) }],
+      choices: [{
+        message: { content: JSON.stringify(extraction("Victory")) },
       }],
-      object: "interaction",
     }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -71,39 +64,32 @@ test("uses the Gemini Interactions API image request and returns all ten extract
 
   try {
     const result = await analyzeResultImage("data:image/jpeg;base64,/9j/2Q==");
-    assert.match(apiUrl, /\/interactions$/);
-    assert.equal(apiRequest.headers.get("x-goog-api-key"), "test-only-not-a-real-key");
-    const body = JSON.parse(await apiRequest.text());
-    assert.equal(body.model, "gemini-3.8-flash");
-    assert.equal(body.store, false);
-    assert.equal(body.input[1].type, "image");
-    assert.equal(body.input[1].mime_type, "image/jpeg");
-    assert.equal(body.input[1].data, "/9j/2Q==");
-    assert.equal(body.response_format.mime_type, "application/json");
-    assert.match(body.input[0].text, /Capture all special symbols/);
-    assert.match(body.input[0].text, /Add \(MVP\) next to the player with the highest score/);
-    assert.equal(body.response_format.schema.properties.teams.items.properties.players.minItems, 5);
-    assert.equal(body.response_format.schema.properties.teams.items.properties.players.maxItems, 5);
+    assert.equal(apiUrl, "https://vyceai.com/v1/chat/completions");
+    assert.equal(apiRequest.headers.Authorization, "Bearer test-only-not-a-real-key");
+    const body = JSON.parse(apiRequest.body);
+    assert.equal(body.model, "deepseek-v4-flash");
+    assert.equal(body.messages[0].content[1].type, "image_url");
+    assert.equal(body.messages[0].content[1].image_url.url, "data:image/jpeg;base64,/9j/2Q==");
+    assert.equal(body.response_format.type, "json_object");
+    assert.match(body.messages[0].content[0].text, /Capture all special symbols/);
+    assert.match(body.messages[0].content[0].text, /Add \(MVP\) next to the player with the highest score/);
+    assert.match(body.messages[0].content[0].text, /Do not invent or calculate points/);
     assert.equal(result.winnerSide, "left");
     assert.equal(result.teams.reduce((total, team) => total + team.players.length, 0), 10);
   } finally {
-    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
-    else process.env.GEMINI_API_KEY = originalKey;
-    if (originalModel === undefined) delete process.env.GEMINI_MODEL;
-    else process.env.GEMINI_MODEL = originalModel;
+    if (originalKey === undefined) delete process.env.VYCEAI_API_KEY;
+    else process.env.VYCEAI_API_KEY = originalKey;
     global.fetch = originalFetch;
   }
 });
 
-test("reports the configured model's provider error when the Interactions API returns 404", async () => {
-  const originalKey = process.env.GEMINI_API_KEY;
+test("reports VyceAI model access errors", async () => {
+  const originalKey = process.env.VYCEAI_API_KEY;
   const originalFetch = global.fetch;
-  process.env.GEMINI_API_KEY = "test-only-not-a-real-key";
+  process.env.VYCEAI_API_KEY = "test-only-not-a-real-key";
   global.fetch = async () => new Response(JSON.stringify({
     error: {
-      code: 404,
-      message: "Requested model was not found.",
-      status: "NOT_FOUND",
+      message: "Model is unavailable.",
     },
   }), {
     status: 404,
@@ -113,11 +99,11 @@ test("reports the configured model's provider error when the Interactions API re
   try {
     await assert.rejects(
       analyzeResultImage("data:image/jpeg;base64,/9j/2Q=="),
-      (error) => error instanceof VisionError && /gemini-3\.8-flash/.test(error.message),
+      (error) => error instanceof VisionError && /deepseek-v4-flash/.test(error.message),
     );
   } finally {
-    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
-    else process.env.GEMINI_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.VYCEAI_API_KEY;
+    else process.env.VYCEAI_API_KEY = originalKey;
     global.fetch = originalFetch;
   }
 });
@@ -164,10 +150,10 @@ test("rejects malformed names and duplicate IGN values before awards are shown",
   );
 });
 
-test("reports missing Gemini credentials without making an API call", async () => {
-  const originalKey = process.env.GEMINI_API_KEY;
+test("reports missing VyceAI credentials without making an API call", async () => {
+  const originalKey = process.env.VYCEAI_API_KEY;
   const originalFetch = global.fetch;
-  delete process.env.GEMINI_API_KEY;
+  delete process.env.VYCEAI_API_KEY;
   let requested = false;
   global.fetch = async () => {
     requested = true;
@@ -176,12 +162,12 @@ test("reports missing Gemini credentials without making an API call", async () =
   try {
     await assert.rejects(
       analyzeResultImage("data:image/jpeg;base64,/9j/2Q=="),
-      (error) => error instanceof VisionError && error.status === 503,
+      (error) => error instanceof VisionError && error.status === 503 && /VYCEAI_API_KEY/.test(error.message),
     );
     assert.equal(requested, false);
   } finally {
-    if (originalKey === undefined) delete process.env.GEMINI_API_KEY;
-    else process.env.GEMINI_API_KEY = originalKey;
+    if (originalKey === undefined) delete process.env.VYCEAI_API_KEY;
+    else process.env.VYCEAI_API_KEY = originalKey;
     global.fetch = originalFetch;
   }
 });

@@ -9,7 +9,6 @@
     "test": "node --test"
   },
   "dependencies": {
-    "@google/genai": "^2.3.0",
     "@vercel/blob": "^2.8.0"
   }
 }
