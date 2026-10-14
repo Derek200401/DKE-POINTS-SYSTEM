@@ -258,13 +258,18 @@ async function prepareResultImage(file) {
         image.src = objectUrl;
       });
     }
-    const scale = Math.min(1, 2400 / Math.max(source.width, source.height));
+    const sourceLongestEdge = Math.max(source.width, source.height);
+    const scale = Math.min(1.5, 3000 / sourceLongestEdge);
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(source.width * scale));
     canvas.height = Math.max(1, Math.round(source.height * scale));
     const context = canvas.getContext("2d");
     if (!context) throw new Error("This browser cannot prepare the screenshot.");
+    context.imageSmoothingEnabled = true;
+    context.imageSmoothingQuality = "high";
+    context.filter = "contrast(1.12) brightness(1.03)";
     context.drawImage(source, 0, 0, canvas.width, canvas.height);
+    context.filter = "none";
 
     for (const quality of [0.94, 0.9, 0.86, 0.82, 0.78, 0.72]) {
       const dataUrl = canvas.toDataURL("image/jpeg", quality);
@@ -407,9 +412,10 @@ elements.uploadResultForm.addEventListener("submit", async (event) => {
     return;
   }
   elements.scanResultSubmit.disabled = true;
-  elements.scanResultSubmit.textContent = "Scanning…";
+  elements.scanResultSubmit.textContent = "Enhancing image…";
   try {
     const image = await prepareResultImage(file);
+    elements.scanResultSubmit.textContent = "Scanning with AI…";
     const result = await request("/api/admin/results", {
       method: "POST",
       body: JSON.stringify({ action: "analyze", image }),

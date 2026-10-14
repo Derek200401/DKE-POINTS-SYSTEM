@@ -134,6 +134,64 @@ test("uses the VyceAI OpenAI-compatible vision request and returns all ten extra
   }
 });
 
+test("parses JSON wrapped in text and returned as multimodal text parts", async () => {
+  const originalKey = process.env.VYCEAI_API_KEY;
+  const originalFetch = global.fetch;
+  process.env.VYCEAI_API_KEY = "test-only-not-a-real-key";
+  const expectedExtraction = extraction("Victory", "right");
+  global.fetch = async () =>
+    new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: [
+            { type: "text", text: "Extracted scoreboard:\n```json\n" },
+            { type: "text", text: `${JSON.stringify(expectedExtraction)}\n\`\`\`` },
+          ],
+        },
+      }],
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  try {
+    const result = await analyzeResultImage("data:image/jpeg;base64,/9j/2Q==");
+    assert.equal(result.winnerSide, "right");
+    assert.equal(result.teams[0].players[0].ign, "Blue-1");
+    assert.equal(result.teams[1].players[0].ign, "Red-1");
+  } finally {
+    if (originalKey === undefined) delete process.env.VYCEAI_API_KEY;
+    else process.env.VYCEAI_API_KEY = originalKey;
+    global.fetch = originalFetch;
+  }
+});
+
+test("returns a clear error when VyceAI does not return a JSON player roster", async () => {
+  const originalKey = process.env.VYCEAI_API_KEY;
+  const originalFetch = global.fetch;
+  process.env.VYCEAI_API_KEY = "test-only-not-a-real-key";
+  global.fetch = async () =>
+    new Response(JSON.stringify({
+      choices: [{ message: { content: "I cannot read the names clearly." } }],
+    }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  try {
+    await assert.rejects(
+      analyzeResultImage("data:image/jpeg;base64,/9j/2Q=="),
+      (error) =>
+        error instanceof VisionError &&
+        /did not contain a valid player-data JSON response/.test(error.message),
+    );
+  } finally {
+    if (originalKey === undefined) delete process.env.VYCEAI_API_KEY;
+    else process.env.VYCEAI_API_KEY = originalKey;
+    global.fetch = originalFetch;
+  }
+});
+
 test("reports VyceAI model access errors", async () => {
   const originalKey = process.env.VYCEAI_API_KEY;
   const originalFetch = global.fetch;
