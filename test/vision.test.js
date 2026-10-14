@@ -43,7 +43,7 @@ test("maps Defeat to red/right", () => {
   assert.equal(result.winnerSide, "right");
 });
 
-test("uses the Gemini SDK image request and returns all ten extracted players", async () => {
+test("uses the Gemini Interactions API image request and returns all ten extracted players", async () => {
   const originalKey = process.env.GEMINI_API_KEY;
   const originalModel = process.env.GEMINI_MODEL;
   const originalFetch = global.fetch;
@@ -51,16 +51,18 @@ test("uses the Gemini SDK image request and returns all ten extracted players", 
   delete process.env.GEMINI_MODEL;
   let apiUrl;
   let apiRequest;
-  global.fetch = async (url, options) => {
-    apiUrl = String(url);
-    apiRequest = options;
+  global.fetch = async (request) => {
+    apiUrl = String(request.url || request);
+    apiRequest = request;
     return new Response(JSON.stringify({
-      candidates: [{
-        content: {
-          role: "model",
-          parts: [{ text: JSON.stringify(extraction("Victory")) }],
-        },
+      id: "test-interaction",
+      status: "completed",
+      model: "gemini-3.8-flash",
+      steps: [{
+        type: "model_output",
+        content: [{ type: "text", text: JSON.stringify(extraction("Victory")) }],
       }],
+      object: "interaction",
     }), {
       status: 200,
       headers: { "Content-Type": "application/json" },
@@ -69,17 +71,19 @@ test("uses the Gemini SDK image request and returns all ten extracted players", 
 
   try {
     const result = await analyzeResultImage("data:image/jpeg;base64,/9j/2Q==");
-    assert.match(apiUrl, /models\/gemini-2\.5-flash:generateContent/);
+    assert.match(apiUrl, /\/interactions$/);
     assert.equal(apiRequest.headers.get("x-goog-api-key"), "test-only-not-a-real-key");
-    const body = JSON.parse(apiRequest.body);
-    assert.equal(body.contents[0].parts[1].inlineData.mimeType, "image/jpeg");
-    assert.equal(body.contents[0].parts[1].inlineData.data, "/9j/2Q==");
-    assert.equal(body.contents[0].parts[1].mediaResolution.level, "MEDIA_RESOLUTION_HIGH");
-    assert.equal(body.generationConfig.responseMimeType, "application/json");
-    assert.match(body.contents[0].parts[0].text, /Capture all special symbols/);
-    assert.match(body.contents[0].parts[0].text, /Add \(MVP\) next to the player with the highest score/);
-    assert.equal(body.generationConfig.responseSchema.properties.teams.items.properties.players.minItems, 5);
-    assert.equal(body.generationConfig.responseSchema.properties.teams.items.properties.players.maxItems, 5);
+    const body = JSON.parse(await apiRequest.text());
+    assert.equal(body.model, "gemini-3.8-flash");
+    assert.equal(body.store, false);
+    assert.equal(body.input[1].type, "image");
+    assert.equal(body.input[1].mime_type, "image/jpeg");
+    assert.equal(body.input[1].data, "/9j/2Q==");
+    assert.equal(body.response_format.mime_type, "application/json");
+    assert.match(body.input[0].text, /Capture all special symbols/);
+    assert.match(body.input[0].text, /Add \(MVP\) next to the player with the highest score/);
+    assert.equal(body.response_format.schema.properties.teams.items.properties.players.minItems, 5);
+    assert.equal(body.response_format.schema.properties.teams.items.properties.players.maxItems, 5);
     assert.equal(result.winnerSide, "left");
     assert.equal(result.teams.reduce((total, team) => total + team.players.length, 0), 10);
   } finally {
