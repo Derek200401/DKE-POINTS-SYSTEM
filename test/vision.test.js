@@ -102,7 +102,7 @@ test("uses the VyceAI OpenAI-compatible vision request and returns all ten extra
     assert.equal(apiUrl, "https://vyceai.com/v1/chat/completions");
     assert.ok(apiRequest.headers.Authorization.startsWith("Bearer "));
     const body = JSON.parse(apiRequest.body);
-    assert.equal(body.model, "deepseek-v4.1");
+    assert.equal(body.model, "deepseek-v4-flash");
     assert.equal(body.messages[0].content[1].type, "image_url");
     assert.equal(
       body.messages[0].content[1].image_url.url,
@@ -279,7 +279,7 @@ test("reports VyceAI model access errors", async () => {
     await assert.rejects(
       analyzeResultImage("data:image/jpeg;base64,/9j/2Q=="),
       (error) =>
-        error instanceof VisionError && /deepseek-v4\.1/.test(error.message),
+        error instanceof VisionError && /deepseek-v4-flash/.test(error.message),
     );
   } finally {
     if (originalKey === undefined) delete process.env.VYCEAI_API_KEY;
