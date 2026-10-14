@@ -258,7 +258,7 @@ async function prepareResultImage(file) {
         image.src = objectUrl;
       });
     }
-    const scale = Math.min(1, 1600 / Math.max(source.width, source.height));
+    const scale = Math.min(1, 2400 / Math.max(source.width, source.height));
     const canvas = document.createElement("canvas");
     canvas.width = Math.max(1, Math.round(source.width * scale));
     canvas.height = Math.max(1, Math.round(source.height * scale));
@@ -266,9 +266,9 @@ async function prepareResultImage(file) {
     if (!context) throw new Error("This browser cannot prepare the screenshot.");
     context.drawImage(source, 0, 0, canvas.width, canvas.height);
 
-    for (const quality of [0.88, 0.78, 0.68, 0.58]) {
+    for (const quality of [0.94, 0.9, 0.86, 0.82, 0.78, 0.72]) {
       const dataUrl = canvas.toDataURL("image/jpeg", quality);
-      if (dataUrl.length <= 2800000) return dataUrl;
+      if (dataUrl.length <= 2750000) return dataUrl;
     }
     throw new Error("This screenshot is too large to scan. Choose a smaller image.");
   } finally {
@@ -278,6 +278,14 @@ async function prepareResultImage(file) {
 }
 
 function addReviewPlayer(player = {}) {
+  const sideValue = player.side || "left";
+  const sideCount = [...elements.reviewPlayerList.querySelectorAll(".result-review-side")]
+    .filter((side) => side.value === sideValue).length;
+  if (sideCount >= 5) {
+    elements.reviewResultMessage.textContent = `There are already five ${sideValue === "left" ? "blue-team" : "red-team"} players. Remove a row before adding another.`;
+    return;
+  }
+  elements.reviewResultMessage.textContent = "";
   const row = document.createElement("div");
   row.className = "result-review-row";
 
@@ -347,6 +355,11 @@ function getReviewInput() {
 function scheduleResultPreview() {
   window.clearTimeout(previewTimer);
   const generation = ++previewGeneration;
+  const sides = [...elements.reviewPlayerList.querySelectorAll(".result-review-side")];
+  const blueCount = sides.filter((side) => side.value === "left").length;
+  const redCount = sides.filter((side) => side.value === "right").length;
+  elements.reviewResultWarning.textContent =
+    `AI detected ${elements.reviewWinnerSide.value === "left" ? "VICTORY — blue team wins" : "DEFEAT — red team wins"}. Roster: Blue ${blueCount}/5 · Red ${redCount}/5.`;
   elements.approveResultSubmit.disabled = true;
   elements.reviewResultMessage.textContent = "";
   elements.reviewPlayerList.querySelectorAll(".result-review-award").forEach((element) => {
@@ -406,7 +419,7 @@ elements.uploadResultForm.addEventListener("submit", async (event) => {
     elements.reviewPlayerList.replaceChildren();
     result.participants.forEach(addReviewPlayer);
     elements.reviewResultWarning.textContent = [
-      `AI detected ${result.result.toUpperCase()}.`,
+      `AI detected ${result.result.toUpperCase()} — ${result.winnerSide === "left" ? "blue team wins" : "red team wins"}. Roster: Blue 5/5 · Red 5/5.`,
       ...(result.warnings || []),
     ].join(" ");
     elements.reviewResultMessage.textContent = "";
@@ -431,6 +444,16 @@ document.querySelector("#add-left-result-player").addEventListener("click", () =
 document.querySelector("#add-right-result-player").addEventListener("click", () => {
   addReviewPlayer({ side: "right" });
   scheduleResultPreview();
+});
+elements.reviewPlayerList.addEventListener("change", (event) => {
+  if (!event.target.matches(".result-review-side")) return;
+  const sideCount = [...elements.reviewPlayerList.querySelectorAll(".result-review-side")]
+    .filter((side) => side.value === event.target.value).length;
+  if (sideCount > 5) {
+    event.target.value = event.target.value === "left" ? "right" : "left";
+    elements.reviewResultMessage.textContent = "Each team must contain exactly five players.";
+    scheduleResultPreview();
+  }
 });
 elements.reviewResultForm.addEventListener("submit", async (event) => {
   event.preventDefault();

@@ -72,6 +72,10 @@ module.exports = async function handler(req, res) {
       const { image, dataUrl } = readImageDataUrl(body.image);
       const extraction = await analyzeResultImage(dataUrl);
       const participants = extraction.teams.flatMap((team) => team.players);
+      calculateAwards({
+        winnerSide: extraction.winnerSide,
+        players: participants,
+      });
       return sendJson(res, 200, {
         imageHash: crypto.createHash("sha256").update(image).digest("hex"),
         result: extraction.result,
