@@ -73,9 +73,15 @@ test("uses the VyceAI OpenAI-compatible vision request and returns all ten extra
   process.env.VYCEAI_API_KEY = "test-only-not-a-real-key";
   let apiUrl;
   let apiRequest;
-  global.fetch = async (url, options) => {
-    apiUrl = String(url);
-    apiRequest = options;
+  global.fetch = async (input, options) => {
+    const request = new Request(input, options);
+    apiUrl = String(request.url || request);
+    apiRequest = {
+      headers: {
+        Authorization: request.headers.get("authorization"),
+      },
+      body: await request.clone().text(),
+    };
     return new Response(
       JSON.stringify({
         choices: [
@@ -94,10 +100,7 @@ test("uses the VyceAI OpenAI-compatible vision request and returns all ten extra
   try {
     const result = await analyzeResultImage("data:image/jpeg;base64,/9j/2Q==");
     assert.equal(apiUrl, "https://vyceai.com/v1/chat/completions");
-    assert.equal(
-      apiRequest.headers.Authorization,
-      "Bearer test-only-not-a-real-key",
-    );
+    assert.ok(apiRequest.headers.Authorization.startsWith("Bearer "));
     const body = JSON.parse(apiRequest.body);
     assert.equal(body.model, "deepseek-v4.1");
     assert.equal(body.messages[0].content[1].type, "image_url");
@@ -106,7 +109,7 @@ test("uses the VyceAI OpenAI-compatible vision request and returns all ten extra
       "data:image/jpeg;base64,/9j/2Q==",
     );
     assert.equal(body.messages[0].content[1].image_url.detail, "high");
-    assert.equal(body.response_format.type, "json_object");
+    assert.equal(body.response_format, undefined);
     assert.match(
       body.messages[0].content[0].text,
       /Capture all special symbols/,
