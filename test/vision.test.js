@@ -74,7 +74,7 @@ test("uses the Gemini SDK image request and returns all ten extracted players", 
     const body = JSON.parse(apiRequest.body);
     assert.equal(body.contents[0].parts[1].inlineData.mimeType, "image/jpeg");
     assert.equal(body.contents[0].parts[1].inlineData.data, "/9j/2Q==");
-    assert.equal(body.contents[0].parts[1].mediaResolution, "MEDIA_RESOLUTION_HIGH");
+    assert.equal(body.contents[0].parts[1].mediaResolution.level, "MEDIA_RESOLUTION_HIGH");
     assert.equal(body.generationConfig.responseMimeType, "application/json");
     assert.match(body.contents[0].parts[0].text, /Capture all special symbols/);
     assert.match(body.contents[0].parts[0].text, /Add \(MVP\) next to the player with the highest score/);
